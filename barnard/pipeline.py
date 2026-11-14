@@ -1,4 +1,5 @@
 """Render a fixed Barnard's Star field from real NEOWISE W1 cutouts."""
+import gzip
 import io
 import math
 import re
@@ -6,16 +7,14 @@ from time import monotonic
 from pathlib import Path
 
 import numpy as np
-import re
-from time import monotonicquests
+import requests
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import ascii, fits
 from astropy.time import Time
 from astropy.wcs import WCS
 from PIL import Image
-from reproject import re
-from time import monotonicproject_interp
+from reproject import reproject_interp
 
 IRSA = "https://irsa.ipac.caltech.edu/ibe"
 COLLECTION = "wise/neowiser/p1bm_frm"
@@ -53,6 +52,11 @@ def download(session, url, params=None, limit=4_000_000):
             data.extend(chunk)
             if len(data) > limit:
                 raise ValueError("IRSA response exceeded the download limit")
+    if data.startswith(b"\x1f\x8b"):
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as compressed:
+            data = compressed.read(limit + 1)
+        if len(data) > limit:
+            raise ValueError("Decompressed IRSA response exceeded the download limit")
     return bytes(data)
 
 
@@ -130,8 +134,13 @@ def read_exposure(session, row, grid):
     x, y = grid.world_to_pixel(predicted_position(epoch))
     ix, iy = round(float(x)), round(float(y))
     if (np.isfinite(aligned).mean() < .94 or
-        not 4 <= ix < SHAPE[1] - 4 or not 4 <= iy < SHAPE[0] - 4 or
-        np.isfinite(aligned[iy-3:iy+4, ix-3:ix+4]).mean() < .65):
+        not 12 <= ix < SHAPE[1] - 12 or not 12 <= iy < SHAPE[0] - 12):
+        return None
+    # The bright core can be saturated. Require usable data in the surrounding wings.
+    offsets = np.arange(-12, 13)
+    separation = np.hypot(offsets[:, None], offsets[None, :])
+    wings = aligned[iy-12:iy+13, ix-12:ix+13][(separation >= 7) & (separation <= 12)]
+    if np.isfinite(wings).mean() < .55:
         return None
     aligned -= np.nanmedian(aligned)
     # Normalize calibrated exposures to a shared flux scale before display.
