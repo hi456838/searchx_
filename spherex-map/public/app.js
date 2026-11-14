@@ -26,6 +26,7 @@ let viewer, A, layer;
 let selectedReference;
 let activeFrame = 62;
 let searchRevision = 0;
+let selectObservations;
 let loadDeadline;
 let lastTarget = { ...home, label: 'Horsehead' };
 
@@ -43,7 +44,8 @@ function showNavigationStatus(message) {
 
 const positionText = (ra, dec) => `RA ${ra.toFixed(4)}° · Dec ${dec.toFixed(4)}°`;
 function updatePosition() {
-  byId('position').textContent = positionText(...viewer.getRaDec());
+  const center = viewer.getRaDec();
+  if (center?.every(Number.isFinite)) byId('position').textContent = positionText(...center);
 }
 
 function inspect(reference) {
@@ -83,7 +85,8 @@ function pointAt(ra, dec, fov) {
   viewer.stopAnimation();
   viewer.gotoRaDec(ra, dec);
   if (fov !== undefined) viewer.setFoV(fov);
-  updatePosition();
+  byId('position').textContent = positionText(ra, dec);
+  requestAnimationFrame(updatePosition);
 }
 
 function goToReference(reference) {
@@ -233,6 +236,11 @@ let matches = [], active = -1;
 function dismiss() { popup.hidden = true; target.setAttribute('aria-expanded','false'); target.removeAttribute('aria-activedescendant'); active = -1; syncState(); }
 function render() {
   const result = search(target.value); matches = result.results.slice(0, 6); active = -1;
+  const query = target.value.trim();
+  if (query && !result.error && !result.ambiguous && !matches.some(entry => entry.type === 'coordinates')) {
+    matches.push({ type: 'catalog', name: 'Find “' + query + '” in the sky catalog',
+      description: 'Search CDS Sesame by object name or catalog ID', category: 'Catalog', query });
+  }
   byId('clear-search').hidden = !target.value;
   byId('suggestion-heading').textContent = target.value ? (result.ambiguous ? 'CHOOSE WHAT YOU MEAN' : 'SEARCH RESULTS') : 'EXPLORE THE UNIVERSE';
   list.replaceChildren();
@@ -248,14 +256,22 @@ function render() {
 }
 function setActive(index) { active=(index+matches.length)%matches.length; [...list.children].forEach((el,i)=>el.setAttribute('aria-selected',String(i===active))); target.setAttribute('aria-activedescendant','suggestion-'+active); list.children[active]?.scrollIntoView({block:'nearest'}); }
 function choose(entry) {
-  if (!byId('observation-panel').hidden) byId('observation-close').click();
+  if (entry.type === 'catalog') { resolveExternal(entry.query); return; }
+  const refresh = !byId('observation-panel').hidden;
+  if (refresh) selectObservations.close();
   if (!byId('barnard-panel').hidden) byId('barnard-close').click();
   ++searchRevision; dismiss(); showNavigationStatus(''); target.value=entry.name; byId('clear-search').hidden=false;
   if(entry.type==='lesson') { inspect(null); byId('guide').open=false; byId('lesson-name').textContent=entry.name; byId('lesson-body').textContent=entry.body; byId('lesson-source').href=entry.url; byId('lesson').hidden=false; syncState(); return; }
   byId('lesson').hidden=true; syncState();
   if(!viewer) {showNavigationStatus('The sky map is still starting. Select this result again when it is ready.');return;}
-  if(entry.type==='object') {goToReference(entry); target.value=entry.name; return;}
+  if(entry.type==='object') {
+    goToReference(entry);
+    target.value=entry.name;
+    if (refresh) { inspect(null); void selectObservations(entry.ra, entry.dec); }
+    return;
+  }
   pointAt(...entry.position); rememberTarget(...entry.position,'coordinates'); inspect(null);
+  if (refresh) void selectObservations(...entry.position);
 }
 function resolveExternal(query) {
   if(!viewer || !A) {showNavigationStatus('The sky map is still starting. Try again shortly.');return;}
@@ -264,7 +280,10 @@ function resolveExternal(query) {
   A.Sesame.resolveAstronomicalName(query, ({ra,dec})=>{
     clearTimeout(timeout); if(revision!==searchRevision)return;
     if(!Number.isFinite(ra)||!Number.isFinite(dec)||ra<0||ra>=360||Math.abs(dec)>90){showNavigationStatus('The resolver returned an invalid position.');return;}
+    const refresh = !byId('observation-panel').hidden;
+    if (!byId('barnard-panel').hidden) byId('barnard-close').click();
     pointAt(ra,dec); rememberTarget(ra,dec,query); inspect(null); byId('lesson').hidden=true; syncState(); showNavigationStatus('Position resolved by CDS Sesame.');
+    if (refresh) void selectObservations(ra, dec);
   },()=>{clearTimeout(timeout);if(revision===searchRevision)showNavigationStatus('No object found. Try a catalog ID, a different spelling, or RA and Dec.');});
 }
 target.addEventListener('focus',render);
@@ -278,8 +297,10 @@ byId('navigation').addEventListener('submit',event=>{
   event.preventDefault(); const query=target.value.trim(); if(!query){render();return;}
   const result=search(query); if(result.error){showNavigationStatus(result.error);render();return;}
   if(active>=0 && !popup.hidden){choose(matches[active]);return;}
-  if(result.ambiguous || result.results.length > 1){render();showNavigationStatus('Choose a result from the suggestions.');return;}
-  if(result.results.length === 1){choose(result.results[0]);return;} resolveExternal(query);
+  if(result.exact){choose(result.exact);return;}
+  if(result.ambiguous){render();showNavigationStatus('Choose a result from the suggestions.');return;}
+  if(result.results[0]?.type === 'coordinates'){choose(result.results[0]);return;}
+  resolveExternal(query);
 });
 byId('clear-search').addEventListener('click',()=>{++searchRevision;target.value='';showNavigationStatus('');target.focus();render();});
 document.addEventListener('pointerdown',event=>{if(!byId('navigation').contains(event.target))dismiss();});
@@ -303,7 +324,7 @@ async function start() {
     });
     viewer.on('positionChanged', updatePosition);
     const openBarnard = setupBarnard(viewer, A, pointAt);
-    const selectObservations = setupObservations(viewer, A, () => inspect(null));
+    selectObservations = setupObservations(viewer, A, () => inspect(null));
     byId('object-observations').addEventListener('click', () => {
       if (!selectedReference) return;
       const { ra, dec } = selectedReference;
