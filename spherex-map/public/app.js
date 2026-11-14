@@ -1,6 +1,6 @@
 import { coordinates, parseProperties, references } from './sky-data.js';
 
-import { setupBarnard } from './barnard-timelapse.js';
+import { barnardMarker, setupBarnard } from './barnard-timelapse.js';
 
 const byId = id => document.getElementById(id);
 const channel = byId('channel');
@@ -218,7 +218,7 @@ async function start() {
       showReticle: false, survey: opticalLayer(), log: false,
     });
     viewer.on('positionChanged', updatePosition);
-    setupBarnard(viewer, A, pointAt);
+    const openBarnard = setupBarnard(viewer, A, pointAt);
     viewer.on('wheelTriggered', event => {
       const delta = event.deltaY;
       if (!delta) return;
@@ -239,7 +239,7 @@ async function start() {
       if (survey.value === 'infrared' && Number(channel.value) === activeFrame && loadedFrames.has(activeFrame) && !notice.hidden) updateLoading();
     }).observe({ type: 'resource', buffered: true });
 
-    const pins = references.map(reference => {
+    const pins = [...references, barnardMarker].map(reference => {
       const pin = document.createElement('button');
       pin.className = 'map-pin';
       pin.type = 'button';
@@ -252,6 +252,11 @@ async function start() {
       pin.addEventListener('click', () => {
         searchRevision++;
         showNavigationStatus('');
+        if (reference === barnardMarker) {
+          inspect(null);
+          openBarnard();
+          return;
+        }
         rememberTarget(reference.ra, reference.dec, reference === home ? 'Horsehead' : reference.id);
         inspect(selectedReference === reference ? null : reference);
       });
@@ -279,6 +284,13 @@ async function start() {
       button.addEventListener('click', () => goToReference(reference));
       byId('references').append(button);
     }
+    const barnardShortcut = byId('barnard-shortcut');
+    barnardShortcut.addEventListener('click', () => {
+      searchRevision++;
+      inspect(null);
+      openBarnard();
+    });
+    barnardShortcut.disabled = false;
     returnButton.disabled = false;
     byId('go').disabled = false;
     updatePosition();
