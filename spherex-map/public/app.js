@@ -60,7 +60,11 @@ function inspect(reference) {
   if (!reference) return;
   byId('object-fields').closest('details').open = false;
   byId('copy-status').textContent = '';
-  const exhibit = exhibits[reference.id];
+  const exhibit = exhibits[reference.id] ?? {
+    type: reference.category ?? 'SKY OBJECT',
+    why: reference.description,
+    url: 'https://science.nasa.gov/mission/hubble/science/explore-the-night-sky/hubble-messier-catalog/',
+  };
   byId('object-type').textContent = exhibit.type;
   byId('object-id').textContent = reference.id + '  ·  ' + reference.source;
   byId('object-why').textContent = exhibit.why;
