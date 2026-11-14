@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
   ['/app.js', ['app.js', 'text/javascript']],
+  ['/ui-state.js', ['ui-state.js', 'text/javascript']],
+  ['/search.js', ['search.js', 'text/javascript']],
   ['/sky-data.js', ['sky-data.js', 'text/javascript']],
   ['/style.css', ['style.css', 'text/css']],
   ['/irsa.properties', ['irsa.properties', 'text/plain']],
