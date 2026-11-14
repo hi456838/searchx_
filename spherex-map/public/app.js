@@ -220,7 +220,11 @@ async function start() {
     });
     viewer.on('positionChanged', updatePosition);
     const openBarnard = setupBarnard(viewer, A, pointAt);
-    const selectObservations = setupObservations(viewer, A);
+    const selectObservations = setupObservations(viewer, A, (...coords) => {
+      selectObservations.close();
+      inspect(null);
+      return openBarnard.region(...coords);
+    });
     byId('object-observations').addEventListener('click', () => {
       if (!selectedReference) return;
       const { ra, dec } = selectedReference;
@@ -262,6 +266,7 @@ async function start() {
         showNavigationStatus('');
         if (reference === barnardMarker) {
           inspect(null);
+          selectObservations.close();
           openBarnard();
           return;
         }
@@ -296,6 +301,7 @@ async function start() {
     barnardShortcut.addEventListener('click', () => {
       searchRevision++;
       inspect(null);
+      selectObservations.close();
       openBarnard();
     });
     barnardShortcut.disabled = false;

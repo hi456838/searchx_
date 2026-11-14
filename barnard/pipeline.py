@@ -60,10 +60,10 @@ def download(session, url, params=None, limit=4_000_000):
     return bytes(data)
 
 
-def visits(session):
+def visits(session, center=CENTER):
     try:
         content = download(session, f"{IRSA}/search/{COLLECTION}",
-                           {"POS": f"{CENTER.ra.deg:.8f},{CENTER.dec.deg:.8f}",
+                           {"POS": f"{center.ra.deg:.8f},{center.dec.deg:.8f}",
                             "ct": "ipac_table", "columns": "scan_id,frame_num,band,mjd,qual_frame",
                             "where": "band=1"})
         rows = ascii.read(content.decode("utf-8"), format="ipac")
@@ -73,7 +73,7 @@ def visits(session):
         # The source catalog also identifies real exposures of the fixed field.
         content = download(session, "https://irsa.ipac.caltech.edu/cgi-bin/Gator/nph-query",
                            {"catalog": "neowiser_p1bs_psd", "spatial": "Cone",
-                            "objstr": f"{CENTER.ra.deg:.8f} {CENTER.dec.deg:.8f}",
+                            "objstr": f"{center.ra.deg:.8f} {center.dec.deg:.8f}",
                             "radius": 2, "radunits": "arcmin", "outfmt": 1,
                             "selcols": "scan_id,frame_num,mjd"})
         detections = ascii.read(content.decode("utf-8"), format="ipac")
@@ -93,17 +93,17 @@ def visits(session):
     return groups
 
 
-def output_grid():
+def output_grid(center=CENTER, field=4):
     grid = WCS(naxis=2)
     grid.wcs.crpix = [(n + 1) / 2 for n in SHAPE]
-    grid.wcs.crval = [CENTER.ra.deg, CENTER.dec.deg]
-    grid.wcs.cdelt = [-4 / 60 / SHAPE[1], 4 / 60 / SHAPE[0]]
+    grid.wcs.crval = [center.ra.deg, center.dec.deg]
+    grid.wcs.cdelt = [-field / 60 / SHAPE[1], field / 60 / SHAPE[0]]
     grid.wcs.ctype = ["RA---TAN", "DEC--TAN"]
     grid.wcs.radesys = "ICRS"
     return grid
 
 
-def read_exposure(session, row, grid):
+def read_exposure(session, row, grid, center=CENTER, field=4):
     scan = str(row["scan_id"])
     number = int(row["frame_num"])
     if not re.fullmatch(r"[0-9]{5}[a-z]", scan) or not 0 <= number <= 999:
@@ -111,7 +111,7 @@ def read_exposure(session, row, grid):
     product = f"{scan}{number:03d}-w1"
     prefix = f"{IRSA}/data/{COLLECTION}/{scan[-2:]}/{scan}/{number:03d}/{product}"
     source = prefix + "-int-1b.fits"
-    params = {"center": f"{CENTER.ra.deg:.8f},{CENTER.dec.deg:.8f}", "size": "5arcmin"}
+    params = {"center": f"{center.ra.deg:.8f},{center.dec.deg:.8f}", "size": f"{field + 1}arcmin"}
     with fits.open(io.BytesIO(download(session, source, params))) as science, fits.open(
         io.BytesIO(download(session, prefix + "-msk-1b.fits.gz", params))
     ) as mask:
@@ -131,17 +131,19 @@ def read_exposure(session, row, grid):
         aligned = np.divide(aligned, weights, out=np.full(SHAPE, np.nan), where=weights > .65)
     aligned[footprint == 0] = np.nan
     epoch = Time(float(header.get("MJD_OBS", row["mjd"])), format="mjd", scale="utc")
-    x, y = grid.world_to_pixel(predicted_position(epoch))
-    ix, iy = round(float(x)), round(float(y))
-    if (np.isfinite(aligned).mean() < .94 or
-        not 12 <= ix < SHAPE[1] - 12 or not 12 <= iy < SHAPE[0] - 12):
+    if np.isfinite(aligned).mean() < .94:
         return None
-    # The bright core can be saturated. Require usable data in the surrounding wings.
-    offsets = np.arange(-12, 13)
-    separation = np.hypot(offsets[:, None], offsets[None, :])
-    wings = aligned[iy-12:iy+13, ix-12:ix+13][(separation >= 7) & (separation <= 12)]
-    if np.isfinite(wings).mean() < .55:
-        return None
+    if center is CENTER:
+        x, y = grid.world_to_pixel(predicted_position(epoch))
+        ix, iy = round(float(x)), round(float(y))
+        if not (12 <= ix < SHAPE[1] - 12 and 12 <= iy < SHAPE[0] - 12):
+            return None
+        # The bright core can be saturated. Require usable data in the surrounding wings.
+        offsets = np.arange(-12, 13)
+        separation = np.hypot(offsets[:, None], offsets[None, :])
+        wings = aligned[iy-12:iy+13, ix-12:ix+13][(separation >= 7) & (separation <= 12)]
+        if np.isfinite(wings).mean() < .55:
+            return None
     aligned -= np.nanmedian(aligned)
     # Normalize calibrated exposures to a shared flux scale before display.
     if "MAGZP" in header:
@@ -150,47 +152,68 @@ def read_exposure(session, row, grid):
                      "band": "NEOWISE W1 · 3.4 µm", "sourceUrl": source}
 
 
-def render(directory: Path, progress):
-    grid = output_grid()
+
+def render(directory: Path, progress, *, center=CENTER, field=4,
+           route="/timelapse/barnard-star/frames"):
+    grid = output_grid(center, field)
+    manifest = {"center": [float(center.ra.deg), float(center.dec.deg)],
+                "fieldArcmin": field, "frames": []}
+    if center is CENTER:
+        manifest.update(target="Barnard's Star", catalogUrl=CATALOG_URL)
     frames = []
+    stretch = None
+    deadline = monotonic() + 235
+    failed = None
+
     with requests.Session() as session:
-        session.headers["User-Agent"] = "SIEVE-Observatory-Barnard-Timelapse/1"
-        groups = visits(session)
+        session.headers["User-Agent"] = "SIEVE-Observatory-NEOWISE/2"
+        groups = visits(session, center)
         if len(groups) < 2:
             raise InsufficientData
-        indices = np.linspace(0, len(groups) - 1, min(7, len(groups)), dtype=int)
-        failures = []
-        deadline = monotonic() + 270
-        for count, index in enumerate(indices, start=1):
-            progress(f"Preparing observation visit {count} of {len(indices)}.")
+        intermediate = list(dict.fromkeys(np.linspace(1, len(groups) - 2, min(5, len(groups) - 2), dtype=int)))
+        order = [0, len(groups) - 1, *intermediate]
+        for count, index in enumerate(order, start=1):
+            message = f"Checking observation visit {count} of {len(order)}."
+            progress(message, manifest if stretch else None)
             for row in sorted(groups[index], key=lambda item: -int(item["qual_frame"]))[:4]:
                 if monotonic() > deadline:
-                    raise requests.Timeout('IRSA sequence took too long')
+                    if stretch:
+                        return manifest
+                    raise requests.Timeout("IRSA sequence exceeded its time budget")
                 try:
-                    frame = read_exposure(session, row, grid)
+                    frame = read_exposure(session, row, grid, center, field)
                 except requests.HTTPError as error:
-                    if error.response.status_code in (400, 404, 416):
-                        continue
-                    failures.append(error)
-                    break
+                    if error.response.status_code not in (400, 404, 416):
+                        failed = error
+                    continue
+                except (requests.ConnectionError, requests.Timeout) as error:
+                    failed = error
+                    continue
                 if frame is not None:
                     frames.append(frame)
                     break
-        if failures and len(frames) < 3:
-            raise failures[0]
-        if len(frames) < 2:
-            raise InsufficientData
-    pixels = np.concatenate([array[np.isfinite(array)] for array, _ in frames])
-    low, high = np.percentile(pixels, [15, 99.6])
-    if not math.isfinite(high) or high <= low:
+            if len(frames) < 2:
+                continue
+            if stretch is None:
+                pixels = np.concatenate([array[np.isfinite(array)] for array, _ in frames])
+                low, high = np.percentile(pixels, [15, 99.6])
+                if not math.isfinite(high) or high <= low:
+                    raise InsufficientData
+                stretch = low, high
+            for array, metadata in frames[len(manifest["frames"]):]:
+                low, high = stretch
+                scaled = np.clip((array - low) / (high - low), 0, 1)
+                gray = np.uint8(np.nan_to_num(np.arcsinh(8 * scaled) / np.arcsinh(8)) * 255)
+                alpha = np.uint8(np.isfinite(array) * 255)
+                filename = (f'{len(manifest["frames"]):02d}' if center is CENTER else metadata["productId"]) + ".png"
+                temporary = directory / (filename + ".tmp")
+                Image.fromarray(np.flipud(np.stack((gray, alpha), axis=-1))).save(temporary, format="PNG")
+                temporary.replace(directory / filename)
+                manifest["frames"].append({**metadata, "imageUrl": f"{route}/{filename}"})
+            manifest["frames"].sort(key=lambda frame: frame["observedAt"])
+            progress(message, manifest)
+    if not stretch:
+        if failed:
+            raise failed
         raise InsufficientData
-    manifest = {"target": "Barnard’s Star", "catalogUrl": CATALOG_URL,
-                "center": [CENTER.ra.deg, CENTER.dec.deg], "fieldArcmin": 4, "frames": []}
-    for index, (array, frame) in enumerate(frames):
-        scaled = np.clip((array - low) / (high - low), 0, 1)
-        gray = np.uint8(np.nan_to_num(np.arcsinh(8 * scaled) / np.arcsinh(8)) * 255)
-        alpha = np.uint8(np.isfinite(array) * 255)
-        filename = f"{index:02d}.png"
-        Image.fromarray(np.flipud(np.stack((gray, alpha), axis=-1))).save(directory / filename)
-        manifest["frames"].append({**frame, "imageUrl": f"/timelapse/barnard-star/frames/{filename}"})
     return manifest

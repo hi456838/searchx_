@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 
 import { serveBarnard } from '../barnard/proxy.mjs';
 
+import { serveRegion } from '../barnard/region-proxy.mjs';
+
 const assets = new Map([
   ['/barnard-timelapse.js', ['barnard-timelapse.js', 'text/javascript']],
   ['/', ['index.html', 'text/html']],
@@ -18,6 +20,10 @@ const irsa = "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cub
 const port = Number(process.env.PORT ?? 5173);
 const server = createServer(async (request, response) => {
   const pathname = new URL(request.url, "http://localhost").pathname;
+  if (pathname === '/timelapse/regions' || pathname.startsWith('/timelapse/regions/')) {
+    await serveRegion(new URL(request.url, 'http://localhost'), request, response);
+    return;
+  }
   if (pathname.startsWith('/timelapse/barnard-star/')) {
     await serveBarnard(pathname, request, response);
     return;

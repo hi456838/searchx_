@@ -1,4 +1,4 @@
-export function setupObservations(viewer, A) {
+export function setupObservations(viewer, A, selectTimeLapse) {
   const byId = id => document.getElementById(id);
   const sky = byId('sky');
   const panel = byId('observation-panel');
@@ -90,7 +90,7 @@ export function setupObservations(viewer, A) {
     } catch {
       return;
     }
-    if (coords) void select(...coords);
+    if (coords && byId('barnard-select').getAttribute('aria-pressed') !== 'true') void selectTimeLapse(...coords);
   }, true);
   byId('observation-close').addEventListener('click', () => {
     request?.abort();
@@ -117,5 +117,6 @@ export function setupObservations(viewer, A) {
     timer = setInterval(() => showFrame((Number(slider.value) + 1) % frames.length), 1000);
   });
 
+  select.close = () => { request?.abort(); stop(); overlay.removeAll(); panel.hidden = true; };
   return select;
 }

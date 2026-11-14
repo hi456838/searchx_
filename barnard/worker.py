@@ -9,10 +9,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from pipeline import InsufficientData, render
+import regions
 
 app = FastAPI()
 cache = Path(os.environ.get("BARNARD_CACHE_DIR", "./barnard-cache")) / "neowise-w1-v1"
 manifest_file = cache / "manifest.json"
+regions.root = cache.parent / "regions"
+app.include_router(regions.router)
 lock = Lock()
 state = {"status": "idle"}
 JOB_ID = "barnard-neowise-w1-v1"
@@ -26,7 +29,7 @@ def update(status, message=None):
 def build():
     try:
         cache.mkdir(parents=True, exist_ok=True)
-        manifest = render(cache, lambda message: update("running", message))
+        manifest = render(cache, lambda message, manifest=None: update("running", message))
         temporary = manifest_file.with_suffix(".tmp")
         temporary.write_text(json.dumps(manifest), encoding="utf-8")
         temporary.replace(manifest_file)
