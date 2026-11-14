@@ -21,10 +21,9 @@ const objectTerms = {
   'M 101': {category:'Galaxy', aliases:['M101','NGC 5457','Pinwheel','galaxy near the big dipper'], keywords:'spiral galaxy'}
 };
 const objects = references.map(x=>({...x, type:'object', ...(objectTerms[x.id] ?? {category:'Object', aliases:[], keywords:''})}));
-export const entries = [...objects, ...lessons];
-export const defaults = ['Barnard 33','M 42','M 31','birth','death','infrared'].map(id=>entries.find(e=>e.id===id));
+export const entries = [...objects, {id:'barnard-star',type:'action',category:'Time-lapse',name:"Barnard's Star",aliases:['barnard star','barnards star'],keywords:'moving star time lapse',description:'Explore a NEOWISE time-lapse.'}, ...lessons];
+export const defaults = ['Barnard 33','M 42','M 31','barnard-star','birth','death'].map(id=>entries.find(e=>e.id===id));
 export const normalize = value => value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(messier|m|ngc)\s*(\d+)/g,(_,a,b)=>a!=="ngc"?'m'+b:'ngc'+b).replace(/[^a-z0-9]+/g,' ').trim();
-// Remove conversational framing while keeping the object name or catalog ID intact.
 export function catalogQuery(query) {
   return query.trim()
     .replace(/^(?:please\s+)?(?:(?:can|could|would) you\s+)?(?:show me|take me to|point (?:me|the telescope) at|find|look up|search for|where (?:is|are)|go to)\s+/i, '')

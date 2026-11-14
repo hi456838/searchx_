@@ -39,6 +39,8 @@ export function setupObservations(viewer, A, closeInspector) {
     image.hidden = true;
     image.removeAttribute('src');
     imageStatus.hidden = true;
+    byId('observation-alternative').hidden = true;
+    byId('observation-fits-fallback').hidden = true;
   }
   const overlay = A.graphicOverlay({ name: 'SPHEREx observation position', color: '#8eeade', lineWidth: 2 });
   viewer.addOverlay(overlay);
@@ -100,8 +102,13 @@ export function setupObservations(viewer, A, closeInspector) {
         return false;
       }
       imageStatus.hidden = false;
-      imageStatus.textContent = 'Image preview unavailable. The original FITS cutout is linked below.';
+      imageStatus.textContent = 'Image preview unavailable. The original FITS cutout is available below.';
+      byId('observation-fits-fallback').href = frame.cutoutUrl;
+      byId('observation-fits-fallback').hidden = false;
+      byId('observation-alternative').hidden = false;
+      return false;
     }
+    byId('observation-fits-fallback').hidden = true;
     slider.value = index;
     image.dataset.frame = index;
     const date = new Date((frame.mjd - 40587) * 86400000);
@@ -139,6 +146,7 @@ export function setupObservations(viewer, A, closeInspector) {
       frames = results.frames;
       if (!frames.length) {
         status.textContent = 'No matching DR1 wide-survey exposures found at this position.';
+        byId('observation-alternative').hidden = false;
         return;
       }
       status.textContent = frames.length === 1 ? 'One observation date found.' :
@@ -160,12 +168,14 @@ export function setupObservations(viewer, A, closeInspector) {
       }
       slider.max = frames.length - 1;
       slider.disabled = play.disabled = frames.length < 2;
-      void showFrame(reference < frames.length ? reference : 0);
-      player.hidden = false;
+      const shown = await showFrame(reference < frames.length ? reference : 0);
+      if (current.signal.aborted) return;
+      player.hidden = !shown;
     } catch {
       if (current.signal.aborted) return;
       status.textContent = 'IRSA couldn’t return observations. Try again or choose another spot.';
       byId('observation-retry').hidden = false;
+      byId('observation-alternative').hidden = false;
     }
   }
 

@@ -16,13 +16,13 @@
     <form id="navigation">
       <div class="search-shell"><div class="search-input"><span aria-hidden="true" class="search-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 4.5 4.5"></path></svg></span><input id="target" role="combobox" aria-label="Search the sky" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions" autocomplete="off" placeholder="Try “show me the Crab Nebula”"><button id="clear-search" type="button" aria-label="Clear search" hidden>×</button><button id="go" type="submit" aria-label="Search" title="Search">→</button></div><div id="search-popup" hidden><div id="suggestion-heading">DISCOVER THE SKY</div><div id="suggestions" role="listbox" aria-label="Search suggestions"></div><p id="search-hint" role="status" aria-live="polite"></p></div></div>
     </form>
-    <div class="tools"><label class="tool-label" for="survey">SKY VIEW</label>
+    <details class="layers-menu" id="layers"><summary aria-label="Layers and view">◈ <span>Layers / View</span></summary><div class="tools"><label class="tool-label" for="survey">SKY VIEW</label>
       <select id="survey" aria-label="Sky survey" disabled><option value="optical">DSS2 · Optical color</option><option value="infrared">SPHEREx · Infrared</option></select>
       <select id="channel" aria-label="Infrared wavelength" disabled hidden></select>
-      <button type="button" id="home" disabled>Recenter</button>
+
       <button type="button" id="barnard-select" aria-pressed="false" disabled>Select region</button>
-      <button type="button" id="barnard-shortcut" disabled>Barnard's Star</button>
-      <button type="button" id="observation-center" disabled>Observations here</button>
+      <button type="button" id="barnard-shortcut" disabled hidden>Barnard's Star</button>
+      <button type="button" id="observation-center" disabled>Observations at map center</button>
       <details id="guide">
         <summary aria-label="Help and imagery information">Help</summary>
         <div class="panel">
@@ -35,19 +35,33 @@
           <p><a href="https://irsa.ipac.caltech.edu/Missions/spherex.html">NASA / IPAC SPHEREx DR1</a> · <a href="https://github.com/cds-astro/aladin-lite/tree/v3.8.1">CDS Aladin Lite</a> · <a href="/vendor/LICENSE">License</a></p>
         </div>
       </details>
-    </div>
+    </div></details>
+    <div class="map-controls" role="group" aria-label="Map navigation"><button type="button" id="home" disabled title="Recenter">⌖ <span>Recenter</span></button><button type="button" id="map-zoom-in" aria-label="Zoom in">+</button><button type="button" id="map-zoom-out" aria-label="Zoom out">−</button></div>
     <p id="navigation-status" role="status" hidden></p>
   </div>
-  <aside id="observation-panel" class="panel" aria-labelledby="observation-heading" hidden>
-    <button id="observation-close" type="button" aria-label="Close SPHEREx observations">×</button>
-    <h2 id="observation-heading">SPHEREx observations</h2>
+  <div id="notice" role="status">Starting the sky map…</div>
+  <aside id="story-sidebar" aria-label="Discovery panel"><button id="sheet-toggle" type="button" aria-expanded="false"><span id="sheet-name">Selected object</span> <span id="sheet-label">Expand ↑</span></button><header id="panel-header"><button id="panel-collapse" type="button" aria-label="Collapse panel">−</button><span id="panel-drag-title">Explore</span><button id="panel-close" type="button" aria-label="Close panel">×</button></header><nav id="panel-stages" aria-label="Discovery stages"><button type="button" data-stage="discover">Discover</button><button type="button" data-stage="observe">Observe</button><button type="button" data-stage="understand">Understand</button></nav><div id="panel-body"><section id="inspector" class="story-section" aria-label="Object details" hidden>
+<button id="close-inspector" class="story-close" type="button" aria-label="Close object details" hidden>×</button>
+    <div class="inspector-content">
+      <p class="eyebrow" id="object-type"></p><h2 id="object-name"></h2><p class="object-id" id="object-id"></p>
+      <p id="object-description" class="intro"></p>
+    </div>
+
+  </section>
+  <section id="lesson" class="story-section" aria-label="Learn about astronomy" hidden>
+<button id="close-lesson" class="story-close" type="button" aria-label="Close lesson">×</button>
+    <div class="inspector-content"><span class="eyebrow">EXPLORE AN IDEA</span><h2 id="lesson-name"></h2><p id="lesson-body" class="intro"></p><a id="lesson-source" class="source-link" target="_blank" rel="noopener noreferrer">Read more at NASA <span aria-hidden="true">↗</span></a></div>
+  </section>
+  <section id="observation-panel" class="story-section" aria-labelledby="observation-heading" hidden>
+    <button id="observation-close" class="section-close" type="button" aria-label="Close SPHEREx observations" hidden>×</button>
+    <h2 id="observation-heading">A closer look <span> / SPHEREx DR1</span></h2>
     <p id="observation-position"></p>
     <p id="observation-status" role="status"></p>
     <p id="observation-placeholder" role="status" hidden></p>
     <div id="observation-viewport" hidden>
       <img id="observation-image" alt="SPHEREx infrared exposure at the selected sky position" hidden>
     </div>
-    <button id="observation-retry" type="button" hidden>Try again</button>
+    <button id="observation-retry" type="button" hidden>Try again</button><p id="observation-alternative" hidden>Continue exploring the sky map, or <a href="https://irsa.ipac.caltech.edu/spherex-archive-documentation/spherex-data-access/" target="_blank" rel="noopener noreferrer">open NASA/IPAC’s SPHEREx data access guide ↗</a>.</p><a id="observation-fits-fallback" target="_blank" rel="noopener noreferrer" hidden>Download the original SPHEREx FITS cutout ↗</a>
     <div id="observation-player" hidden>
       <div id="observation-zoom" role="group" aria-label="Image zoom">
         <button id="observation-zoom-out" type="button" aria-label="Zoom out">−</button>
@@ -60,29 +74,16 @@
       <a id="observation-source" target="_blank" rel="noopener noreferrer">Download this SPHEREx FITS cutout ↗</a>
       <p>Previews show individual SPHEREx exposures. Brightness uses a shared scale across this sequence. Detector orientation and wavelength can vary across exposures. Use the FITS cutout for measurements.</p>
     </div>
-  </aside>
-  <div id="notice" role="status">Starting the sky map…</div>
-  <aside id="lesson" class="inspector" aria-label="Learn about astronomy" hidden>
-    <div class="inspector-top"><button class="drag-handle" type="button" aria-label="Move lesson panel; use arrow keys to move, Home to reset" title="Drag or use arrow keys; Home resets">⠿ <span>DRAG TO MOVE</span></button><button class="reset-panel" type="button" hidden>Reset position</button><button id="close-lesson" type="button" aria-label="Close lesson">×</button></div>
-    <div class="inspector-content"><span class="eyebrow">EXPLORE AN IDEA</span><h2 id="lesson-name"></h2><p id="lesson-body" class="intro"></p><a id="lesson-source" class="source-link" target="_blank" rel="noopener noreferrer">Read more at NASA <span aria-hidden="true">↗</span></a></div>
-  </aside>
-  <aside id="inspector" class="inspector" aria-label="Object details" hidden>
-    <div class="inspector-top"><button class="drag-handle" type="button" aria-label="Move object panel; use arrow keys to move, Home to reset" title="Drag or use arrow keys; Home resets">⠿ <span>DRAG TO MOVE</span></button><button class="reset-panel" type="button" hidden>Reset position</button><button id="close-inspector" type="button" aria-label="Close object details">×</button></div>
-    <div class="inspector-content">
-      <p class="eyebrow" id="object-type"></p><h2 id="object-name"></h2><p class="object-id" id="object-id"></p>
-      <p id="object-description" class="intro"></p>
-      <div class="inspector-divider"></div><h3>Why this matters</h3><p id="object-why"></p>
+  </section>
+<section id="story-supplement" class="story-section" hidden>      <h3>Why this matters</h3><p id="object-why"></p>
       <a id="object-learn" class="source-link" target="_blank" rel="noopener noreferrer">Explore the science at NASA <span aria-hidden="true">↗</span></a>
-      <button id="object-observations" type="button">SPHEREx observations</button>
+      <button id="object-observations" type="button" hidden>View SPHEREx observations</button>
       <details class="evidence"><summary>Scientific reference <span aria-hidden="true">+</span></summary>
         <p>Catalog position shown for context. This is not a SIEVE-verified detection.</p>
         <dl id="object-fields"><dt>Catalog reference</dt><dd id="object-catalog"></dd><dt>Sky position · ICRS</dt><dd id="object-position"></dd></dl>
         <button id="copy-position" type="button">Copy sky position</button><span id="copy-status" role="status" aria-live="polite"></span><br><a id="object-source" target="_blank" rel="noopener noreferrer">Open catalog ↗</a>
       </details>
-    </div>
-
-  </aside>
-  <aside id="barnard-panel" class="panel" aria-labelledby="barnard-heading" hidden>
+</section>  <section id="barnard-panel" class="story-section" aria-label="Sky time-lapse" hidden>
     <button id="barnard-close" type="button" aria-label="Close time-lapse">×</button>
     <h2 id="barnard-heading">Sky time-lapse</h2>
     <p id="barnard-position"></p>
@@ -96,7 +97,8 @@
       <p><output id="barnard-date"></output> · NEOWISE W1 · 3.4 µm</p>
       <a id="barnard-source" target="_blank" rel="noopener noreferrer">Source observation at NASA/IPAC IRSA</a>
     </div>
-  </aside>
+  </section>
+<section id="quiz" class="story-section" hidden aria-labelledby="quiz-heading"><button type="button" id="quiz-back" class="text-button">← Back to story</button><p class="eyebrow" id="quiz-progress"></p><h2 id="quiz-heading" tabindex="-1"></h2><div id="quiz-answers" class="quiz-answers"></div><p id="quiz-feedback" role="status" aria-live="polite"></p><button type="button" id="quiz-next" hidden>Continue →</button><p id="quiz-complete" hidden>Two questions complete. Keep exploring the sky.</p><button id="explore-another" type="button" hidden>Explore another object →</button></section><div id="story-action" hidden><button type="button" id="quiz-start">Observe <span aria-hidden="true">→</span></button></div></div><div id="panel-resize" role="separator" aria-label="Resize information panel" aria-orientation="vertical" tabindex="0" aria-valuemin="300" aria-valuemax="440" aria-valuenow="340"></div></aside>
   <div class="coordinates"><output id="position"></output><a id="image-source" href="https://doi.org/10.26093/cds/aladin/ht9n-7r">DSS2 · STScI/NASA, CDS</a></div>
 </main>
 </body>
