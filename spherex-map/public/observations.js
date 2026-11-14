@@ -30,6 +30,7 @@ export function setupObservations(viewer, A) {
   async function select(ra, dec) {
     if (![ra, dec].every(Number.isFinite)) return;
     if (byId('barnard-select').getAttribute('aria-pressed') === 'true') return;
+    if (!byId('barnard-panel').hidden) byId('barnard-close').click();
     request?.abort();
     const current = new AbortController();
     request = current;

@@ -11,6 +11,8 @@ const assets = new Map([
   ['/', ['index.html', 'text/html']],
   ['/observatory', ['spherex-map/public/index.html', 'text/html']],
   ['/app.js', ['spherex-map/public/app.js', 'text/javascript']],
+  ['/ui-state.js', ['spherex-map/public/ui-state.js', 'text/javascript']],
+  ['/search.js', ['spherex-map/public/search.js', 'text/javascript']],
   ['/sky-data.js', ['spherex-map/public/sky-data.js', 'text/javascript']],
   ['/style.css', ['spherex-map/public/style.css', 'text/css']],
   ['/irsa.properties', ['spherex-map/public/irsa.properties', 'text/plain']],
