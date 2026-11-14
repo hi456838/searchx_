@@ -2,6 +2,8 @@ import { parseProperties, references } from './sky-data.js';
 import { search } from './search.js';
 import { uiState } from './ui-state.js';
 
+import { setupBarnard } from './barnard-timelapse.js';
+
 const byId = id => document.getElementById(id);
 const channel = byId('channel');
 const survey = byId('survey');
@@ -75,6 +77,8 @@ function rememberTarget(ra, dec, label, fov = viewer.getFoV()[0]) {
 }
 
 function pointAt(ra, dec, fov) {
+  // Any newer map navigation supersedes a pending name-resolution request.
+  searchRevision++;
   viewer.stopAnimation();
   viewer.gotoRaDec(ra, dec);
   if (fov !== undefined) viewer.setFoV(fov);
@@ -295,6 +299,7 @@ async function start() {
       showReticle: false, survey: opticalLayer(), log: false,
     });
     viewer.on('positionChanged', updatePosition);
+    setupBarnard(viewer, A, pointAt);
     viewer.on('wheelTriggered', event => {
       const delta = event.deltaY;
       if (!delta) return;

@@ -168,3 +168,22 @@ dt { color:#65788d; }
 .suggestion { transition:background-color .12s ease; }
 @media (prefers-reduced-motion: reduce) { .suggestion { transition:none; } }
 @media(max-width:700px) { #navigation-status { top:180px; } }
+
+#sky.select-region, #sky.select-region canvas { cursor: crosshair !important; }
+#barnard-select[aria-pressed="true"] { outline: 2px solid #ffc779; }
+#barnard-panel { position: absolute; z-index: 8; right: 1rem; bottom: 3rem; width: min(22rem, calc(100vw - 2rem)); }
+#barnard-panel h2 { margin-right: 2rem; }
+#barnard-close { position: absolute; top: .7rem; right: .7rem; }
+#barnard-image { display: block; width: min(100%, 32vh); aspect-ratio: 1; object-fit: contain; background: #06070a; margin: .65rem 0; }
+#barnard-frame { max-width: 65%; vertical-align: middle; }
+#barnard-player p { margin: .45rem 0; }
+
+/* Preserve the upstream time-lapse controls within the light observatory theme. */
+#barnard-panel { color:#202c39; background:#fbfcfd; border:1px solid #dbe2e9; border-radius:16px; box-shadow:var(--shadow); padding:18px; max-height:70vh; overflow:auto; font-size:.85rem; }
+#barnard-panel h2 { font-size:1.1rem; margin:0 2rem 12px 0; }
+#barnard-panel button { color:#253344; background:#f1f5f9; border:1px solid #cdd8e3; border-radius:8px; min-height:38px; padding:6px 10px; }
+#barnard-panel button:hover { background:#e3eef8; }
+#barnard-panel a { color:#176cc1; }
+
+/* A time-lapse task temporarily takes visual priority over object details. */
+main:has(#barnard-panel:not([hidden])) .inspector { visibility:hidden; }
