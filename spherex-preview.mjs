@@ -39,11 +39,11 @@ export function readScienceImage(bytes) {
   return null;
 }
 
-function renderSvg({width, height, pixels}) {
+function renderSvg({width, height, pixels}, stretch) {
   const sorted = pixels.filter(Number.isFinite).sort((a, b) => a - b);
   if (!sorted.length) throw new Error('No finite science pixels');
-  const low = sorted[Math.floor((sorted.length - 1) * .02)];
-  const high = sorted[Math.floor((sorted.length - 1) * .98)];
+  const low = stretch?.[0] ?? sorted[Math.floor((sorted.length - 1) * .02)];
+  const high = stretch?.[1] ?? sorted[Math.floor((sorted.length - 1) * .98)];
   const paths = Array.from({length: 64}, () => []);
   for (let i = 0; i < pixels.length; i++) {
     if (!Number.isFinite(pixels[i])) continue;
@@ -52,12 +52,13 @@ function renderSvg({width, height, pixels}) {
     const y = height - 1 - Math.floor(i / width);
     paths[shade].push('M' + x + ' ' + y + 'h1v1h-1z');
   }
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height +
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height +
     '" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#17212c"/>' +
     paths.map((path, shade) => {
       const value = Math.round(shade * 255 / 63);
       return path.length ? '<path fill="rgb(' + [value, value, value].join(',') + ')" d="' + path.join('') + '"/>' : '';
     }).join('') + '</svg>';
+  return { svg, low, high };
 }
 
 export async function servePreview(url, response) {
@@ -73,6 +74,11 @@ export async function servePreview(url, response) {
   const source = new URL(product, archive);
   source.searchParams.set('center', ra + ',' + dec);
   source.searchParams.set('size', '0.1');
+  const stretch = url.searchParams.get('stretch')?.split(',').map(Number);
+  if (stretch && (stretch.length !== 2 || !stretch.every(Number.isFinite) || stretch[0] > stretch[1])) {
+    response.writeHead(400).end();
+    return;
+  }
   let reader;
   try {
     const upstream = await fetch(source, { redirect: 'error', signal: AbortSignal.timeout(10000) });
@@ -85,9 +91,10 @@ export async function servePreview(url, response) {
       bytes = Buffer.concat([bytes, value.subarray(0, maxBytes - bytes.length)]);
       const image = readScienceImage(bytes);
       if (!image) continue;
-      const svg = renderSvg(image);
+      const { svg, low, high } = renderSvg(image, stretch);
       response.writeHead(200, {
         'Content-Type': 'image/svg+xml',
+        'X-SPHEREx-Stretch': low + ',' + high,
         'Cache-Control': 'public, max-age=86400',
         'X-Content-Type-Options': 'nosniff',
       }).end(svg);
