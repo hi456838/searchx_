@@ -24,6 +24,7 @@
       </select>
       <select id="channel" aria-label="Infrared wavelength" disabled hidden></select>
       <button type="button" id="home" disabled>Return to Horsehead</button>
+      <button type="button" id="barnard-select" aria-pressed="false" disabled>Select region</button>
       <details id="guide">
         <summary>How to explore</summary>
         <div class="panel">
@@ -45,6 +46,20 @@
     <p id="object-description"></p>
     <dl id="object-fields"><dt>Catalog reference</dt><dd id="object-catalog"></dd><dt>Sky position</dt><dd id="object-position"></dd></dl>
     <a id="object-source" target="_blank" rel="noopener noreferrer">Open catalog ↗</a>
+  </aside>
+  <aside id="barnard-panel" class="panel" aria-label="Barnard’s Star time-lapse" hidden>
+    <button id="barnard-close" type="button" aria-label="Close time-lapse">×</button>
+    <h2>Barnard’s Star time-lapse</h2>
+    <p id="barnard-status" role="status"></p>
+    <button id="barnard-find" type="button">Find it on the map</button>
+    <button id="barnard-retry" type="button" hidden>Try again</button>
+    <div id="barnard-player" hidden>
+      <img id="barnard-image" alt="Aligned NEOWISE infrared image of Barnard’s Star’s field">
+      <button id="barnard-play" type="button">Play</button>
+      <input id="barnard-frame" type="range" min="0" max="0" value="0" aria-label="Observation frame">
+      <p><output id="barnard-date"></output> · NEOWISE W1 · 3.4 µm</p>
+      <a id="barnard-source" target="_blank" rel="noopener noreferrer">Source observation at NASA/IPAC IRSA</a>
+    </div>
   </aside>
   <div class="coordinates"><output id="position"></output><a id="image-source" href="https://doi.org/10.26093/cds/aladin/ht9n-7r">DSS2 · STScI/NASA, CDS</a></div>
 </main>
