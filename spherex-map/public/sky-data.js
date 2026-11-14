@@ -4,6 +4,10 @@ export const references = [
   { id: 'M 42', name: 'Orion Nebula', ra: 83.82208, dec: -5.39111, fov: 2, description: 'A nearby emission nebula and region of active star formation.', source: 'SIMBAD' },
   { id: 'M 31', name: 'Andromeda Galaxy', ra: 10.684708, dec: 41.26875, fov: 4, description: 'A large spiral galaxy in the Local Group.', source: 'SIMBAD' },
   { id: 'M 101', name: 'Pinwheel Galaxy', ra: 210.80227, dec: 54.34895, fov: 2, description: 'A face-on spiral galaxy in Ursa Major. The coordinates are the target position in the IRSA cutout tutorial.', source: 'IRSA / NED', url: 'https://caltech-ipac.github.io/irsa-tutorials/spherex-cutouts/' },
+  { id: 'M 1', name: 'Crab Nebula', ra: 83.6332, dec: 22.0145, fov: 0.6, description: 'The remnant of a supernova observed in 1054.', source: 'SIMBAD' },
+  { id: 'M 45', name: 'Pleiades', ra: 56.75, dec: 24.1167, fov: 3, description: 'An open cluster of young stars also called the Seven Sisters.', source: 'SIMBAD' },
+  { id: 'M 51', name: 'Whirlpool Galaxy', ra: 202.4696, dec: 47.1952, fov: 0.8, description: 'A spiral galaxy interacting with a smaller companion.', source: 'SIMBAD' },
+  { id: 'M 57', name: 'Ring Nebula', ra: 283.3962, dec: 33.0291, fov: 0.4, description: 'A shell of gas shed by a dying star.', source: 'SIMBAD' },
 ];
 
 export function parseProperties(raw) {

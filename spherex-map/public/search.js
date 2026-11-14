@@ -14,12 +14,16 @@ const objectTerms = {
   'Barnard 33': {category:'Nebula', aliases:['Horsehead','B33','Barnard 33'], keywords:'dark dust nebula horse head'},
   'M 42': {category:'Nebula', aliases:['Orion','M42','NGC 1976'], keywords:'star birth formation nebula'},
   'M 31': {category:'Galaxy', aliases:['M31','NGC 224','Andromeda'], keywords:'spiral galaxy'},
+  'M 1': {category:'Nebula', aliases:['Crab','NGC 1952'], keywords:'supernova remnant pulsar'},
+  'M 45': {category:'Star cluster', aliases:['Seven Sisters','Pleiades'], keywords:'open cluster stars'},
+  'M 51': {category:'Galaxy', aliases:['Whirlpool','NGC 5194'], keywords:'spiral galaxy'},
+  'M 57': {category:'Nebula', aliases:['Ring','NGC 6720'], keywords:'planetary nebula'},
   'M 101': {category:'Galaxy', aliases:['M101','NGC 5457','Pinwheel'], keywords:'spiral galaxy'}
 };
 const objects = references.map(x=>({...x, type:'object', ...(objectTerms[x.id] ?? {category:'Object', aliases:[], keywords:''})}));
 export const entries = [...objects, ...lessons];
 export const defaults = ['Barnard 33','M 42','M 31','birth','death','infrared'].map(id=>entries.find(e=>e.id===id));
-export const normalize = value => value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(messier|ngc)\s*(\d+)/g,(_,a,b)=>a==='messier'?'m'+b:'ngc'+b).replace(/[^a-z0-9]+/g,' ').trim();
+export const normalize = value => value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(messier|m|ngc)\s*(\d+)/g,(_,a,b)=>a!=="ngc"?'m'+b:'ngc'+b).replace(/[^a-z0-9]+/g,' ').trim();
 function distance(a,b) { if(Math.abs(a.length-b.length)>2)return 99; let prev=Array.from({length:b.length+1},(_,i)=>i); for(let i=1;i<=a.length;i++){const row=[i];for(let j=1;j<=b.length;j++)row[j]=Math.min(row[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=row;}return prev[b.length]; }
 export function search(query) {
   const raw=query.trim(); if(!raw)return {results:defaults};
@@ -29,5 +33,6 @@ export function search(query) {
   const results=entries.map((e,index)=>{const name=normalize(e.name), id=normalize(e.id), aliases=e.aliases.map(normalize), keys=normalize(e.keywords); let score=0;
     if(q===name||q===id)score=100; else if(aliases.includes(q))score=95; else if([name,id,...aliases].some(v=>v.startsWith(q)))score=80; else if(q.length>=3 && q.split(' ').every(w=>(' '+name+' '+keys+' '+aliases.join(' ')).includes(w)))score=60; else if(q.length>=4 && [name,...aliases].some(v=>distance(q,v)<= (q.length>7?2:1)))score=50;
     return {e,index,score};}).filter(x=>x.score).sort((a,b)=>b.score-a.score||a.index-b.index).map(x=>x.e).slice(0,8);
-  return {results};
+  const exact = results.find(entry => [entry.name, entry.id, ...entry.aliases].some(term => normalize(term) === q));
+  return {results, exact};
 }
