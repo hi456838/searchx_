@@ -9,6 +9,8 @@ const assets = new Map([
   ['/barnard-timelapse.js', ['barnard-timelapse.js', 'text/javascript']],
   ['/', ['index.html', 'text/html']],
   ['/app.js', ['app.js', 'text/javascript']],
+  ['/ui-state.js', ['ui-state.js', 'text/javascript']],
+  ['/search.js', ['search.js', 'text/javascript']],
   ['/sky-data.js', ['sky-data.js', 'text/javascript']],
   ['/style.css', ['style.css', 'text/css']],
   ['/irsa.properties', ['irsa.properties', 'text/plain']],

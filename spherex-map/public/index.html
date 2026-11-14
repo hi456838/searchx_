@@ -14,27 +14,23 @@
   <div id="map-pins" role="group" aria-label="Objects on the map"></div>
   <div class="controls">
     <form id="navigation">
-      <input id="target" aria-label="Object name or sky coordinates" placeholder="Find Horsehead, M42, or coordinates" required>
-      <button id="go" type="submit" disabled>Go</button>
+      <div class="search-shell"><div class="search-input"><span aria-hidden="true" class="search-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m15.5 15.5 4.5 4.5"></path></svg></span><input id="target" role="combobox" aria-label="Search the sky" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions" autocomplete="off" placeholder="Search objects, questions, or coordinates"><button id="clear-search" type="button" aria-label="Clear search" hidden>×</button><button id="go" type="submit" aria-label="Search" title="Search">→</button></div><div id="search-popup" hidden><div id="suggestion-heading">DISCOVER THE SKY</div><div id="suggestions" role="listbox" aria-label="Search suggestions"></div><p id="search-hint" role="status" aria-live="polite"></p></div></div>
     </form>
-    <div class="tools">
-      <select id="survey" aria-label="Sky survey" disabled>
-        <option value="optical">DSS2 · Optical color</option>
-        <option value="infrared">SPHEREx · Infrared</option>
-      </select>
+    <div class="tools"><label class="tool-label" for="survey">SKY VIEW</label>
+      <select id="survey" aria-label="Sky survey" disabled><option value="optical">DSS2 · Optical color</option><option value="infrared">SPHEREx · Infrared</option></select>
       <select id="channel" aria-label="Infrared wavelength" disabled hidden></select>
-      <button type="button" id="home" disabled>Return to Horsehead</button>
+      <button type="button" id="home" disabled>Recenter</button>
       <button type="button" id="barnard-select" aria-pressed="false" disabled>Select region</button>
       <button type="button" id="barnard-shortcut" disabled>Barnard's Star</button>
       <button type="button" id="observation-center" disabled>Observations here</button>
       <details id="guide">
-        <summary>How to explore</summary>
+        <summary aria-label="Help and imagery information">Help</summary>
         <div class="panel">
-          <p>Drag to move across the sky. Use + and − to zoom. Use Return to go back to your last target at its original zoom.</p>
-          <p>SPHEREx sees infrared light our eyes can’t see. Pick a wavelength to see which features stand out. Each setting shows a different wavelength of the same sky survey.</p>
-          <p>DSS2 shows optical color imagery published by CDS. Switch to SPHEREx to see the same sky in infrared.</p>
+          <p>Drag to move across the sky. Use + and − to zoom. Use Recenter to return to your last target and its original zoom.</p>
+          <p>DSS2 shows optical color imagery; switch to SPHEREx to compare the same sky in infrared.</p><p>SPHEREx sees infrared light our eyes can’t see. Pick a wavelength to see which features stand out. Each setting shows a different wavelength of the same sky survey.</p>
+          <p>Select a labeled pin to learn about the object, or try one of these objects.</p><p><strong>About this image:</strong> HiPS imagery loads in tiles. The SPHEREx all-sky cube has a finite resolution (about 12.9 arcseconds per pixel); zooming further cannot reveal finer SPHEREx detail. Dark regions can have several causes; this display alone cannot identify missing data. <a href="https://irsa.ipac.caltech.edu/onlinehelp/spherex/spherex/visualization.html" target="_blank" rel="noopener noreferrer">About the data ↗</a></p>
           <p>Click the sky to play a NEOWISE time-lapse. Use Observations here to list SPHEREx exposures at the map centre.</p>
-          <p>Select a labeled pin to learn about the object, or try one of these objects.</p>
+
           <div id="references"></div>
           <p><a href="https://irsa.ipac.caltech.edu/Missions/spherex.html">NASA / IPAC SPHEREx DR1</a> · <a href="https://github.com/cds-astro/aladin-lite/tree/v3.8.1">CDS Aladin Lite</a> · <a href="/vendor/LICENSE">License</a></p>
         </div>
@@ -58,13 +54,25 @@
     </div>
   </aside>
   <div id="notice" role="status">Starting the sky map…</div>
-  <aside id="inspector" class="panel" aria-label="Object details" hidden>
-    <button id="close-inspector" type="button" aria-label="Close object details">×</button>
-    <h2 id="object-name"></h2>
-    <p id="object-description"></p>
-    <dl id="object-fields"><dt>Catalog reference</dt><dd id="object-catalog"></dd><dt>Sky position</dt><dd id="object-position"></dd></dl>
-    <a id="object-source" target="_blank" rel="noopener noreferrer">Open catalog ↗</a>
-    <button id="object-observations" type="button">SPHEREx observations</button>
+  <aside id="lesson" class="inspector" aria-label="Learn about astronomy" hidden>
+    <div class="inspector-top"><button class="drag-handle" type="button" aria-label="Move lesson panel; use arrow keys to move, Home to reset" title="Drag or use arrow keys; Home resets">⠿ <span>DRAG TO MOVE</span></button><button class="reset-panel" type="button" hidden>Reset position</button><button id="close-lesson" type="button" aria-label="Close lesson">×</button></div>
+    <div class="inspector-content"><span class="eyebrow">EXPLORE AN IDEA</span><h2 id="lesson-name"></h2><p id="lesson-body" class="intro"></p><a id="lesson-source" class="source-link" target="_blank" rel="noopener noreferrer">Read more at NASA <span aria-hidden="true">↗</span></a></div>
+  </aside>
+  <aside id="inspector" class="inspector" aria-label="Object details" hidden>
+    <div class="inspector-top"><button class="drag-handle" type="button" aria-label="Move object panel; use arrow keys to move, Home to reset" title="Drag or use arrow keys; Home resets">⠿ <span>DRAG TO MOVE</span></button><button class="reset-panel" type="button" hidden>Reset position</button><button id="close-inspector" type="button" aria-label="Close object details">×</button></div>
+    <div class="inspector-content">
+      <p class="eyebrow" id="object-type"></p><h2 id="object-name"></h2><p class="object-id" id="object-id"></p>
+      <p id="object-description" class="intro"></p>
+      <div class="inspector-divider"></div><h3>Why this matters</h3><p id="object-why"></p>
+      <a id="object-learn" class="source-link" target="_blank" rel="noopener noreferrer">Explore the science at NASA <span aria-hidden="true">↗</span></a>
+      <button id="object-observations" type="button">SPHEREx observations</button>
+      <details class="evidence"><summary>Scientific reference <span aria-hidden="true">+</span></summary>
+        <p>Catalog position shown for context. This is not a SIEVE-verified detection.</p>
+        <dl id="object-fields"><dt>Catalog reference</dt><dd id="object-catalog"></dd><dt>Sky position · ICRS</dt><dd id="object-position"></dd></dl>
+        <button id="copy-position" type="button">Copy sky position</button><span id="copy-status" role="status" aria-live="polite"></span><br><a id="object-source" target="_blank" rel="noopener noreferrer">Open catalog ↗</a>
+      </details>
+    </div>
+
   </aside>
   <aside id="barnard-panel" class="panel" aria-label="Barnard’s Star time-lapse" hidden>
     <button id="barnard-close" type="button" aria-label="Close time-lapse">×</button>
