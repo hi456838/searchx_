@@ -10,11 +10,31 @@ export function setupObservations(viewer, A, closeInspector) {
   const cutout = byId('observation-source');
   const image = byId('observation-image');
   const imageStatus = byId('observation-placeholder');
+  const viewport = byId('observation-viewport');
+  const zoomOut = byId('observation-zoom-out');
+  const zoomIn = byId('observation-zoom-in');
+  let zoom = 1;
+  let stretch;
   let previewRevision = 0;
+  let failedFrame;
   let previewCache = new Map();
 
+  function setZoom(value) {
+    zoom = value;
+    image.style.transform = 'scale(' + zoom + ')';
+    byId('observation-field').textContent = zoom === 1 ? '6′ cutout' : zoom + '× zoom';
+    zoomOut.disabled = zoom === 1;
+    zoomIn.disabled = zoom === 4;
+  }
+  zoomOut.addEventListener('click', () => setZoom(zoom / 2));
+  zoomIn.addEventListener('click', () => setZoom(zoom * 2));
+
   function resetPreview() {
+    stretch = undefined;
+    viewport.hidden = true;
+    setZoom(1);
     previewRevision++;
+    failedFrame = undefined;
     previewCache = new Map();
     image.hidden = true;
     image.removeAttribute('src');
@@ -30,49 +50,66 @@ export function setupObservations(viewer, A, closeInspector) {
     play.textContent = 'Play';
   }
 
-  async function showFrame(index) {
-    const frame = frames[index];
-    if (!frame) return false;
-    slider.value = index;
-    const date = new Date((frame.mjd - 40587) * 86400000);
-    byId('observation-date').textContent = date.toISOString().slice(0, 10) +
-      ' · MJD ' + frame.mjd.toFixed(4) + ' · ' + frame.detector;
-    cutout.href = frame.cutoutUrl;
+  function previewUrl(frame) {
     const source = new URL(frame.cutoutUrl);
     const [ra, dec] = source.searchParams.get('center').split(',');
-    const preview = '/spherex-preview?' + new URLSearchParams({ product: source.pathname, ra, dec });
-    const revision = ++previewRevision;
-    image.hidden = true;
-    imageStatus.hidden = false;
-    imageStatus.textContent = 'Loading SPHEREx image…';
-    let pending = previewCache.get(preview);
-    if (!pending) {
-      const next = new Image();
-      next.src = preview;
+    const query = new URLSearchParams({ product: source.pathname, ra, dec, v: '2' });
+    if (stretch) query.set('stretch', stretch);
+    return '/spherex-preview?' + query;
+  }
+
+  function loadPreview(frame) {
+    const url = previewUrl(frame);
+    if (!previewCache.has(url)) {
+      const preload = new Image();
+      preload.src = url;
+      const cache = previewCache;
       let timeout;
       const deadline = new Promise((_, reject) => {
         timeout = setTimeout(() => reject(new Error('Preview timed out')), 14000);
       });
-      pending = Promise.race([next.decode().then(() => next.src), deadline])
-        .finally(() => clearTimeout(timeout));
-      previewCache.set(preview, pending);
+      cache.set(url, Promise.race([preload.decode().then(() => preload.src), deadline])
+        .finally(() => clearTimeout(timeout)).catch(error => {
+          cache.delete(url);
+          throw error;
+        }));
     }
+    return previewCache.get(url);
+  }
+
+  async function showFrame(index) {
+    const frame = frames[index];
+    if (!frame) return false;
+    const revision = ++previewRevision;
     try {
-      const src = await pending;
+      const src = await loadPreview(frame);
       if (revision !== previewRevision) return false;
-      image.src = src;
-      image.hidden = false;
-      imageStatus.hidden = true;
+      failedFrame = undefined;
       byId('observation-retry').hidden = true;
-      return true;
+      image.src = src;
+      viewport.hidden = image.hidden = false;
+      imageStatus.hidden = true;
     } catch {
-      if (previewCache.get(preview) === pending) previewCache.delete(preview);
       if (revision !== previewRevision) return false;
-      imageStatus.textContent = 'This image could not be loaded. The original FITS cutout is linked below.';
+      failedFrame = index;
       byId('observation-retry').hidden = false;
       stop();
-      return false;
+      if (!image.hidden) {
+        slider.value = image.dataset.frame;
+        status.textContent = 'This frame could not load. The previous image is still displayed.';
+        return false;
+      }
+      imageStatus.hidden = false;
+      imageStatus.textContent = 'Image preview unavailable. The original FITS cutout is linked below.';
     }
+    slider.value = index;
+    image.dataset.frame = index;
+    const date = new Date((frame.mjd - 40587) * 86400000);
+    byId('observation-date').textContent = date.toISOString().slice(0, 10) +
+      ' · MJD ' + frame.mjd.toFixed(4) + ' · ' + frame.detector;
+    cutout.href = frame.cutoutUrl;
+    if (frames.length > 1) void loadPreview(frames[(index + 1) % frames.length]).catch(() => {});
+    return true;
   }
 
   async function select(ra, dec) {
@@ -106,9 +143,24 @@ export function setupObservations(viewer, A, closeInspector) {
       }
       status.textContent = frames.length === 1 ? 'One observation date found.' :
         frames.length + ' observation dates from the same detector.';
+      imageStatus.hidden = false;
+      imageStatus.textContent = 'Loading first SPHEREx image…';
+      let reference = 0;
+      for (; reference < frames.length; reference++) {
+        try {
+          const response = await fetch(previewUrl(frames[reference]), { signal: current.signal });
+          if (!response.ok) continue;
+          const bounds = response.headers.get('X-SPHEREx-Stretch');
+          await response.arrayBuffer();
+          if (current.signal.aborted) return;
+          if (bounds) { stretch = bounds; break; }
+        } catch {
+          if (current.signal.aborted) return;
+        }
+      }
       slider.max = frames.length - 1;
       slider.disabled = play.disabled = frames.length < 2;
-      showFrame(0);
+      void showFrame(reference < frames.length ? reference : 0);
       player.hidden = false;
     } catch {
       if (current.signal.aborted) return;
@@ -157,10 +209,11 @@ export function setupObservations(viewer, A, closeInspector) {
     panel.hidden = true;
     byId('observation-center').focus();
   });
-  byId('observation-retry').addEventListener('click', () => { if (frames.length && !player.hidden) void showFrame(Number(slider.value)); else if (selected) void select(...selected); });
+  byId('observation-retry').addEventListener('click', () => { if (frames.length && !player.hidden) void showFrame(failedFrame ?? Number(slider.value)); else if (selected) void select(...selected); });
   byId('barnard-select').addEventListener('click', () => {
     if (!panel.hidden && byId('barnard-select').getAttribute('aria-pressed') === 'true') {
       request?.abort();
+      resetPreview();
       stop();
       overlay.removeAll();
       panel.hidden = true;
@@ -175,7 +228,9 @@ export function setupObservations(viewer, A, closeInspector) {
     async function advance() {
       const current = timer;
       const shown = await showFrame((Number(slider.value) + 1) % frames.length);
-      if (shown && timer === current) timer = setTimeout(advance, 1000);
+      if (timer !== current) return;
+      if (shown) timer = setTimeout(advance, 1000);
+      else stop();
     }
     timer = setTimeout(advance, 1000);
   });
