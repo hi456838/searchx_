@@ -124,3 +124,27 @@ dd { margin: 0 0 6px; }
 #barnard-image { display: block; width: min(100%, 32vh); aspect-ratio: 1; object-fit: contain; background: #06070a; margin: .65rem 0; }
 #barnard-frame { max-width: 65%; vertical-align: middle; }
 #barnard-player p { margin: .45rem 0; }
+
+#observation-panel {
+  position: absolute;
+  z-index: 7;
+  left: 1rem;
+  bottom: 3rem;
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: 58dvh;
+  overflow: auto;
+}
+#observation-panel h2 { margin: 0 2rem .5rem 0; font-size: 1.15rem; }
+#observation-panel p { margin: .55rem 0; }
+#observation-close { position: absolute; top: .7rem; right: .7rem; }
+#observation-placeholder {
+  display: grid;
+  min-height: 6rem;
+  place-items: center;
+  margin: .7rem 0;
+  border: 1px dashed var(--line);
+  border-radius: .4rem;
+  color: #bccad6;
+}
+#observation-frame { max-width: 65%; vertical-align: middle; }
+#object-observations { display: block; margin-top: .65rem; }

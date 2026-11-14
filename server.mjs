@@ -2,9 +2,11 @@ import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { readFile } from 'node:fs/promises';
 
+import { serveObservations } from './spherex-observations.mjs';
 import { serveBarnard } from './barnard/proxy.mjs';
 
 const assets = new Map([
+  ['/observations.js', ['spherex-map/public/observations.js', 'text/javascript']],
   ['/barnard-timelapse.js', ['spherex-map/public/barnard-timelapse.js', 'text/javascript']],
   ['/', ['index.html', 'text/html']],
   ['/observatory', ['spherex-map/public/index.html', 'text/html']],
@@ -22,7 +24,12 @@ const properties = await readFile(new URL("./spherex-map/public/irsa.properties"
 const irsa = "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube";
 const port = Number(process.env.PORT ?? 5173);
 export default async function handler(request, response) {
-  const pathname = new URL(request.url, "http://localhost").pathname;
+  const url = new URL(request.url, "http://localhost");
+  const { pathname } = url;
+  if (pathname === '/spherex-observations' && request.method === 'GET') {
+    await serveObservations(url, response);
+    return;
+  }
   if (pathname.startsWith('/timelapse/barnard-star/')) {
     await serveBarnard(pathname, request, response);
     return;
