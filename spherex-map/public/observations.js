@@ -1,4 +1,4 @@
-export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, prefetchTimeLapse) {
+export function setupObservations(viewer, A, closeInspector) {
   const byId = id => document.getElementById(id);
   const sky = byId('sky');
   const panel = byId('observation-panel');
@@ -8,24 +8,62 @@ export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, pref
   const slider = byId('observation-frame');
   const play = byId('observation-play');
   const cutout = byId('observation-source');
+  const image = byId('observation-image');
+  const imageStatus = byId('observation-placeholder');
+  let previewRevision = 0;
+  let previewCache = new Map();
+
+  function resetPreview() {
+    previewRevision++;
+    previewCache = new Map();
+    image.hidden = true;
+    image.removeAttribute('src');
+    imageStatus.hidden = true;
+  }
   const overlay = A.graphicOverlay({ name: 'SPHEREx observation position', color: '#8eeade', lineWidth: 2 });
   viewer.addOverlay(overlay);
   let gesture, request, timer, selected, frames = [];
-  let hoverTimer;
 
   function stop() {
-    clearInterval(timer);
+    clearTimeout(timer);
     timer = undefined;
     play.textContent = 'Play';
   }
 
-  function showFrame(index) {
+  async function showFrame(index) {
     const frame = frames[index];
     slider.value = index;
     const date = new Date((frame.mjd - 40587) * 86400000);
     byId('observation-date').textContent = date.toISOString().slice(0, 10) +
       ' · MJD ' + frame.mjd.toFixed(4) + ' · ' + frame.detector;
     cutout.href = frame.cutoutUrl;
+    const source = new URL(frame.cutoutUrl);
+    const [ra, dec] = source.searchParams.get('center').split(',');
+    const preview = '/spherex-preview?' + new URLSearchParams({ product: source.pathname, ra, dec });
+    const revision = ++previewRevision;
+    image.hidden = true;
+    imageStatus.hidden = false;
+    imageStatus.textContent = 'Loading SPHEREx image…';
+    let pending = previewCache.get(preview);
+    if (!pending) {
+      const next = new Image();
+      next.src = preview;
+      pending = next.decode().then(() => next.src);
+      previewCache.set(preview, pending);
+    }
+    try {
+      const src = await pending;
+      if (revision !== previewRevision) return false;
+      image.src = src;
+      image.hidden = false;
+      imageStatus.hidden = true;
+      return true;
+    } catch {
+      if (previewCache.get(preview) === pending) previewCache.delete(preview);
+      if (revision !== previewRevision) return false;
+      imageStatus.textContent = 'Image preview unavailable. The original FITS cutout is linked below.';
+      return true;
+    }
   }
 
   async function select(ra, dec) {
@@ -36,6 +74,7 @@ export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, pref
     const current = new AbortController();
     request = current;
     selected = [ra, dec];
+    resetPreview();
     stop();
     panel.hidden = false;
     player.hidden = true;
@@ -77,9 +116,7 @@ export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, pref
     }
   }
 
-  sky.addEventListener('pointerleave', () => clearTimeout(hoverTimer));
   sky.addEventListener('pointerdown', event => {
-    clearTimeout(hoverTimer);
     if (!event.isPrimary || event.button !== 0 ||
         event.target.closest('button, a, input, select, .aladin-control-container')) {
       gesture = undefined;
@@ -88,16 +125,6 @@ export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, pref
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY };
   }, true);
   sky.addEventListener('pointermove', event => {
-    clearTimeout(hoverTimer);
-    if (event.pointerType === 'mouse' && !event.buttons &&
-        !event.target.closest('button, a, input, select, .aladin-control-container')) {
-      const { clientX, clientY } = event;
-      hoverTimer = setTimeout(() => {
-        if (!nearbyObject(clientX, clientY)) return;
-        const coords = coordinatesAt(clientX, clientY);
-        if (coords) prefetchTimeLapse(...coords);
-      }, 700);
-    }
     if (gesture && (gesture.id !== event.pointerId ||
         Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 6)) gesture = undefined;
   }, true);
@@ -107,10 +134,14 @@ export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, pref
     gesture = undefined;
     if (start?.id !== event.pointerId || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
     const coords = coordinatesAt(event.clientX, event.clientY);
-    if (coords && byId('barnard-select').getAttribute('aria-pressed') !== 'true') void selectTimeLapse(...coords);
+    if (coords && byId('barnard-select').getAttribute('aria-pressed') !== 'true') {
+      closeInspector();
+      void select(...coords);
+    }
   }, true);
   byId('observation-close').addEventListener('click', () => {
     request?.abort();
+    resetPreview();
     stop();
     overlay.removeAll();
     panel.hidden = true;
@@ -131,9 +162,14 @@ export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, pref
   play.addEventListener('click', () => {
     if (timer) return stop();
     play.textContent = 'Pause';
-    timer = setInterval(() => showFrame((Number(slider.value) + 1) % frames.length), 1000);
+    async function advance() {
+      const current = timer;
+      const shown = await showFrame((Number(slider.value) + 1) % frames.length);
+      if (shown && timer === current) timer = setTimeout(advance, 1000);
+    }
+    timer = setTimeout(advance, 1000);
   });
 
-  select.close = () => { request?.abort(); stop(); overlay.removeAll(); panel.hidden = true; };
+  select.close = () => { request?.abort(); resetPreview(); stop(); overlay.removeAll(); panel.hidden = true; };
   return select;
 }

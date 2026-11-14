@@ -43,14 +43,15 @@
     <h2 id="observation-heading">SPHEREx observations</h2>
     <p id="observation-position"></p>
     <p id="observation-status" role="status"></p>
-    <div id="observation-placeholder">Image preview unavailable</div>
+    <p id="observation-placeholder" role="status" hidden></p>
+    <img id="observation-image" alt="SPHEREx infrared exposure at the selected sky position" hidden>
     <button id="observation-retry" type="button" hidden>Try again</button>
     <div id="observation-player" hidden>
       <button id="observation-play" type="button">Play</button>
       <input id="observation-frame" type="range" min="0" max="0" value="0" aria-label="Observation date">
       <p><output id="observation-date"></output></p>
       <a id="observation-source" target="_blank" rel="noopener noreferrer">Download this SPHEREx FITS cutout ↗</a>
-      <p>Frames use one detector. The wavelength at this spot can vary by exposure.</p>
+      <p>Previews show individual SPHEREx exposures. Brightness is scaled separately for each image, and wavelength can vary across exposures. Use the FITS cutout for measurements.</p>
     </div>
   </aside>
   <div id="notice" role="status">Starting the sky map…</div>

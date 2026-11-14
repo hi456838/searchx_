@@ -1,0 +1,102 @@
+const archive = 'https://irsa.ipac.caltech.edu';
+const maxBytes = 512 * 1024;
+const fitsBlock = 2880;
+
+export function readScienceImage(bytes) {
+  let offset = 0;
+  while (offset + 80 <= bytes.length) {
+    const header = new Map();
+    let card = offset;
+    for (; card + 80 <= bytes.length; card += 80) {
+      const name = bytes.toString('ascii', card, card + 8).trim();
+      if (name === 'END') break;
+      if (bytes[card + 8] === 61) {
+        const field = bytes.toString('ascii', card + 10, card + 80).trim();
+        header.set(name, field.startsWith("'") ? field.split("'")[1].trim() : field.split('/')[0].trim());
+      }
+    }
+    if (card + 80 > bytes.length) return null;
+    const data = Math.ceil((card + 80) / fitsBlock) * fitsBlock;
+    const axes = Number(header.get('NAXIS'));
+    if (!Number.isInteger(axes) || axes < 0 || axes > 9) throw new Error('Invalid FITS dimensions');
+    const dimensions = Array.from({length: axes}, (_, i) => Number(header.get('NAXIS' + (i + 1))));
+    const bitpix = Number(header.get('BITPIX'));
+    const count = axes ? dimensions.reduce((a, b) => a * b, 1) : 0;
+    const size = (count + Number(header.get('PCOUNT') ?? 0)) * Number(header.get('GCOUNT') ?? 1) * Math.abs(bitpix) / 8;
+    if (!Number.isSafeInteger(size) || size < 0 || size > maxBytes) throw new Error('FITS extension exceeds preview limit');
+    if (data + size > bytes.length) return null;
+    if (header.get('EXTNAME') === 'IMAGE') {
+      if (axes !== 2 || bitpix !== -32 || !count || dimensions.some(n => !Number.isInteger(n) || n < 1 || n > 256)) {
+        throw new Error('Unsupported SPHEREx image format');
+      }
+      const scale = Number(header.get('BSCALE') ?? 1);
+      const zero = Number(header.get('BZERO') ?? 0);
+      const pixels = Array.from({length: count}, (_, i) => bytes.readFloatBE(data + i * 4) * scale + zero);
+      return { width: dimensions[0], height: dimensions[1], pixels };
+    }
+    offset = data + Math.ceil(size / fitsBlock) * fitsBlock;
+  }
+  return null;
+}
+
+function renderSvg({width, height, pixels}) {
+  const sorted = pixels.filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) throw new Error('No finite science pixels');
+  const low = sorted[Math.floor((sorted.length - 1) * .02)];
+  const high = sorted[Math.floor((sorted.length - 1) * .98)];
+  const paths = Array.from({length: 64}, () => []);
+  for (let i = 0; i < pixels.length; i++) {
+    if (!Number.isFinite(pixels[i])) continue;
+    const shade = high === low ? 32 : Math.round(63 * Math.max(0, Math.min(1, (pixels[i] - low) / (high - low))));
+    const x = i % width;
+    const y = height - 1 - Math.floor(i / width);
+    paths[shade].push('M' + x + ' ' + y + 'h1v1h-1z');
+  }
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height +
+    '" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#17212c"/>' +
+    paths.map((path, shade) => {
+      const value = Math.round(shade * 255 / 63);
+      return path.length ? '<path fill="rgb(' + [value, value, value].join(',') + ')" d="' + path.join('') + '"/>' : '';
+    }).join('') + '</svg>';
+}
+
+export async function servePreview(url, response) {
+  const product = url.searchParams.get('product') ?? '';
+  const raw = ['ra', 'dec'].map(name => url.searchParams.get(name));
+  const [ra, dec] = raw.map(Number);
+  if (!/^\/ibe\/data\/spherex\/dr1\/level2\/\d{4}W\d{2}_[A-Z0-9]+\/l2b-v\d+-\d{4}-\d+\/[1-6]\/level2_[A-Za-z0-9_-]+\.fits$/.test(product) ||
+      raw.some(value => !value?.trim()) || ![ra, dec].every(Number.isFinite) ||
+      ra < 0 || ra >= 360 || dec < -90 || dec > 90) {
+    response.writeHead(400).end();
+    return;
+  }
+  const source = new URL(product, archive);
+  source.searchParams.set('center', ra + ',' + dec);
+  source.searchParams.set('size', '0.1');
+  let reader;
+  try {
+    const upstream = await fetch(source, { redirect: 'error', signal: AbortSignal.timeout(10000) });
+    if (!upstream.ok || !upstream.body) throw new Error('Cutout unavailable');
+    reader = upstream.body.getReader();
+    let bytes = Buffer.alloc(0);
+    while (bytes.length < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes = Buffer.concat([bytes, value.subarray(0, maxBytes - bytes.length)]);
+      const image = readScienceImage(bytes);
+      if (!image) continue;
+      const svg = renderSvg(image);
+      response.writeHead(200, {
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'public, max-age=86400',
+        'X-Content-Type-Options': 'nosniff',
+      }).end(svg);
+      return;
+    }
+    throw new Error('Science image is missing');
+  } catch {
+    response.writeHead(502, { 'Cache-Control': 'no-store' }).end();
+  } finally {
+    if (reader) void reader.cancel().catch(() => {});
+  }
+}
