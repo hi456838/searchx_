@@ -1,5 +1,7 @@
 import { coordinates, parseProperties, references } from './sky-data.js';
 
+import { setupBarnard } from './barnard-timelapse.js';
+
 const byId = id => document.getElementById(id);
 const channel = byId('channel');
 const notice = byId('notice');
@@ -187,6 +189,7 @@ async function start() {
       showReticle: false, survey: layer, log: false,
     });
     viewer.on('positionChanged', updatePosition);
+    setupBarnard(viewer, A, pointAt);
     viewer.on('wheelTriggered', event => {
       const delta = event.deltaY;
       if (!delta) return;

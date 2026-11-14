@@ -109,3 +109,12 @@ dd { margin: 0 0 6px; }
   background: var(--accent);
 }
 .map-pin.label-left span { left: auto; right: 35px; }
+
+#sky.select-region, #sky.select-region canvas { cursor: crosshair !important; }
+#barnard-select[aria-pressed="true"] { outline: 2px solid #ffc779; }
+#barnard-panel { position: absolute; z-index: 8; right: 1rem; bottom: 3rem; width: min(22rem, calc(100vw - 2rem)); }
+#barnard-panel h2 { margin-right: 2rem; }
+#barnard-close { position: absolute; top: .7rem; right: .7rem; }
+#barnard-image { display: block; width: min(100%, 32vh); aspect-ratio: 1; object-fit: contain; background: #06070a; margin: .65rem 0; }
+#barnard-frame { max-width: 65%; vertical-align: middle; }
+#barnard-player p { margin: .45rem 0; }
