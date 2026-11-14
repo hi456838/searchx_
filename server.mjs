@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const assets = new Map([
   ['/', ['index.html', 'text/html']],
+  ['/observatory', ['observatory.html', 'text/html']],
   ['/app.js', ['app.js', 'text/javascript']],
   ['/sky-data.js', ['sky-data.js', 'text/javascript']],
   ['/style.css', ['style.css', 'text/css']],
@@ -10,7 +11,10 @@ const assets = new Map([
   ['/vendor/aladin.js', ['vendor/aladin.js', 'text/javascript']],
   ...['LICENSE', 'COPYING', 'COPYING.LESSER'].map(name => ['/vendor/' + name, ['vendor/' + name, 'text/plain']]),
 ]);
-const properties = await readFile(new URL("./public/irsa.properties", import.meta.url), "utf8");
+for (const font of ['audiowide.ttf', 'michroma.ttf', 'space-grotesk-400.ttf']) {
+  assets.set('/fonts/' + font, ['fonts/' + font, 'font/ttf']);
+}
+const properties = await readFile(new URL("./irsa.properties", import.meta.url), "utf8");
 const irsa = "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube";
 const port = Number(process.env.PORT ?? 5173);
 const server = createServer(async (request, response) => {
@@ -28,7 +32,7 @@ const server = createServer(async (request, response) => {
     const [path, type] = asset;
     const source = path === 'vendor/aladin.js' ? './node_modules/aladin-lite/dist/aladin.js'
       : path.startsWith('vendor/') ? './node_modules/aladin-lite/' + path.slice(7)
-      : './public/' + path;
+      : './' + path;
     const body = await readFile(new URL(source, import.meta.url));
     response.writeHead(200, { 'Content-Type': type + '; charset=utf-8', 'X-Content-Type-Options': 'nosniff', 'Content-Length': body.length });
     response.end(request.method === 'HEAD' ? undefined : body);
