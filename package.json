@@ -1,0 +1,16 @@
+{
+  "name": "spherex-local-viewer",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "aladin-lite": "https://github.com/cds-astro/aladin-lite/releases/download/v3.8.1/aladin-lite-3.8.1.tgz"
+  }
+}
