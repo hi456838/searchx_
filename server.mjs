@@ -5,6 +5,8 @@ import { readFile } from 'node:fs/promises';
 import { serveObservations } from './spherex-observations.mjs';
 import { serveBarnard } from './barnard/proxy.mjs';
 
+import { serveRegion } from './barnard/region-proxy.mjs';
+
 const assets = new Map([
   ['/observations.js', ['spherex-map/public/observations.js', 'text/javascript']],
   ['/barnard-timelapse.js', ['spherex-map/public/barnard-timelapse.js', 'text/javascript']],
@@ -30,6 +32,10 @@ export default async function handler(request, response) {
   const { pathname } = url;
   if (pathname === '/spherex-observations' && request.method === 'GET') {
     await serveObservations(url, response);
+    return;
+  }
+  if (pathname === '/timelapse/regions' || pathname.startsWith('/timelapse/regions/')) {
+    await serveRegion(new URL(request.url, 'http://localhost'), request, response);
     return;
   }
   if (pathname.startsWith('/timelapse/barnard-star/')) {

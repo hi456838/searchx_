@@ -303,7 +303,17 @@ async function start() {
     });
     viewer.on('positionChanged', updatePosition);
     const openBarnard = setupBarnard(viewer, A, pointAt);
-    const selectObservations = setupObservations(viewer, A);
+    const selectObservations = setupObservations(viewer, A, (...coords) => {
+      selectObservations.close();
+      inspect(null);
+      return openBarnard.region(...coords);
+    }, (x, y) => {
+      const rect = byId('sky').getBoundingClientRect();
+      return references.some(({ ra, dec }) => {
+        const point = viewer.world2pix(ra, dec);
+        return point && Math.hypot(point[0] + rect.left - x, point[1] + rect.top - y) <= 28;
+      });
+    }, openBarnard.prefetch);
     byId('object-observations').addEventListener('click', () => {
       if (!selectedReference) return;
       const { ra, dec } = selectedReference;
@@ -346,6 +356,7 @@ async function start() {
         if (reference === barnardMarker) {
           if (!byId('observation-panel').hidden) byId('observation-close').click();
           inspect(null);
+          selectObservations.close();
           openBarnard();
           return;
         }
@@ -381,6 +392,7 @@ async function start() {
       if (!byId('observation-panel').hidden) byId('observation-close').click();
       searchRevision++;
       inspect(null);
+      selectObservations.close();
       openBarnard();
     });
     barnardShortcut.disabled = false;
