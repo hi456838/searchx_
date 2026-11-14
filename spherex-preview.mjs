@@ -1,3 +1,5 @@
+import { spectralProduct } from './spherex-observations.mjs';
+
 const archive = 'https://irsa.ipac.caltech.edu';
 const maxBytes = 512 * 1024;
 const fitsBlock = 2880;
@@ -65,7 +67,7 @@ export async function servePreview(url, response) {
   const product = url.searchParams.get('product') ?? '';
   const raw = ['ra', 'dec'].map(name => url.searchParams.get(name));
   const [ra, dec] = raw.map(Number);
-  if (!/^\/ibe\/data\/spherex\/dr1\/level2\/\d{4}W\d{2}_[A-Z0-9]+\/l2b-v\d+-\d{4}-\d+\/[1-6]\/level2_[A-Za-z0-9_-]+\.fits$/.test(product) ||
+  if (!spectralProduct.test(product) ||
       raw.some(value => !value?.trim()) || ![ra, dec].every(Number.isFinite) ||
       ra < 0 || ra >= 360 || dec < -90 || dec > 90) {
     response.writeHead(400).end();
