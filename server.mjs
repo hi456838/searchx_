@@ -1,3 +1,4 @@
+import { serveAiSearch } from './ai-search.mjs';
 import { servePreview } from './spherex-preview.mjs';
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
@@ -31,6 +32,10 @@ const port = Number(process.env.PORT ?? 5173);
 export default async function handler(request, response) {
   const url = new URL(request.url, "http://localhost");
   const { pathname } = url;
+  if (pathname === '/ai-search') {
+    await serveAiSearch(request, response);
+    return;
+  }
   if (pathname === '/spherex-preview' && request.method === 'GET') {
     await servePreview(url, response);
     return;

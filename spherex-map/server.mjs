@@ -1,3 +1,5 @@
+import { servePreview } from '../spherex-preview.mjs';
+import { serveObservations } from '../spherex-observations.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 
@@ -6,6 +8,7 @@ import { serveBarnard } from '../barnard/proxy.mjs';
 import { serveRegion } from '../barnard/region-proxy.mjs';
 
 const assets = new Map([
+  ['/observations.js', ['observations.js', 'text/javascript']],
   ['/barnard-timelapse.js', ['barnard-timelapse.js', 'text/javascript']],
   ['/', ['index.html', 'text/html']],
   ['/app.js', ['app.js', 'text/javascript']],
@@ -21,7 +24,16 @@ const properties = await readFile(new URL("./public/irsa.properties", import.met
 const irsa = "https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube";
 const port = Number(process.env.PORT ?? 5173);
 const server = createServer(async (request, response) => {
-  const pathname = new URL(request.url, "http://localhost").pathname;
+  const url = new URL(request.url, "http://localhost");
+  const { pathname } = url;
+  if (request.method === 'GET' && pathname === '/spherex-preview') {
+    await servePreview(url, response);
+    return;
+  }
+  if (request.method === 'GET' && pathname === '/spherex-observations') {
+    await serveObservations(url, response);
+    return;
+  }
   if (pathname === '/timelapse/regions' || pathname.startsWith('/timelapse/regions/')) {
     await serveRegion(new URL(request.url, 'http://localhost'), request, response);
     return;

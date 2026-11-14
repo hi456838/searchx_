@@ -16,6 +16,7 @@ export function setupObservations(viewer, A, closeInspector) {
   let zoom = 1;
   let stretch;
   let previewRevision = 0;
+  let failedFrame;
   let previewCache = new Map();
 
   function setZoom(value) {
@@ -33,6 +34,7 @@ export function setupObservations(viewer, A, closeInspector) {
     viewport.hidden = true;
     setZoom(1);
     previewRevision++;
+    failedFrame = undefined;
     previewCache = new Map();
     image.hidden = true;
     image.removeAttribute('src');
@@ -64,25 +66,36 @@ export function setupObservations(viewer, A, closeInspector) {
       const preload = new Image();
       preload.src = url;
       const cache = previewCache;
-      cache.set(url, preload.decode().then(() => preload.src).catch(error => {
-        cache.delete(url);
-        throw error;
-      }));
+      let timeout;
+      const deadline = new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Preview timed out')), 14000);
+      });
+      cache.set(url, Promise.race([preload.decode().then(() => preload.src), deadline])
+        .finally(() => clearTimeout(timeout)).catch(error => {
+          cache.delete(url);
+          throw error;
+        }));
     }
     return previewCache.get(url);
   }
 
   async function showFrame(index) {
     const frame = frames[index];
+    if (!frame) return false;
     const revision = ++previewRevision;
     try {
       const src = await loadPreview(frame);
       if (revision !== previewRevision) return false;
+      failedFrame = undefined;
+      byId('observation-retry').hidden = true;
       image.src = src;
       viewport.hidden = image.hidden = false;
       imageStatus.hidden = true;
     } catch {
       if (revision !== previewRevision) return false;
+      failedFrame = index;
+      byId('observation-retry').hidden = false;
+      stop();
       if (!image.hidden) {
         slider.value = image.dataset.frame;
         status.textContent = 'This frame could not load. The previous image is still displayed.';
@@ -115,6 +128,7 @@ export function setupObservations(viewer, A, closeInspector) {
     request = current;
     selected = [ra, dec];
     resetPreview();
+    frames = [];
     stop();
     panel.hidden = false;
     player.hidden = true;
@@ -205,7 +219,7 @@ export function setupObservations(viewer, A, closeInspector) {
     panel.hidden = true;
     byId('observation-center').focus();
   });
-  byId('observation-retry').addEventListener('click', () => { if (selected) void select(...selected); });
+  byId('observation-retry').addEventListener('click', () => { if (frames.length && !player.hidden) void showFrame(failedFrame ?? Number(slider.value)); else if (selected) void select(...selected); });
   byId('barnard-select').addEventListener('click', () => {
     if (!panel.hidden && byId('barnard-select').getAttribute('aria-pressed') === 'true') {
       request?.abort();
