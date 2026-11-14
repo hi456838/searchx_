@@ -243,7 +243,7 @@ function render() {
   const query = target.value.trim();
   if (query && !result.error && !result.ambiguous && !matches.some(entry => entry.type === 'coordinates')) {
     matches.push({ type: 'catalog', name: 'Find “' + query + '” in the sky catalog',
-      description: 'Search CDS Sesame by object name or catalog ID', category: 'Catalog', query: catalogQuery(query) });
+      description: 'Search by name or describe an object in your own words', category: 'Catalog', query: catalogQuery(query) });
   }
   byId('clear-search').hidden = !target.value;
   byId('suggestion-heading').textContent = target.value ? (result.ambiguous ? 'CHOOSE WHAT YOU MEAN' : 'SEARCH RESULTS') : 'EXPLORE THE UNIVERSE';
@@ -277,18 +277,72 @@ function choose(entry) {
   pointAt(...entry.position); rememberTarget(...entry.position,'coordinates'); inspect(null);
   if (refresh) void selectObservations(...entry.position);
 }
-function resolveExternal(query) {
-  if(!viewer || !A) {showNavigationStatus('The sky map is still starting. Try again shortly.');return;}
-  const revision=++searchRevision; showNavigationStatus('Searching the Sesame astronomical name resolver…'); dismiss();
-  const timeout=setTimeout(()=>{if(revision===searchRevision){++searchRevision;showNavigationStatus('The name resolver did not respond. Try again or enter coordinates.');}},10000);
-  A.Sesame.resolveAstronomicalName(query, ({ra,dec})=>{
-    clearTimeout(timeout); if(revision!==searchRevision)return;
-    if(!Number.isFinite(ra)||!Number.isFinite(dec)||ra<0||ra>=360||Math.abs(dec)>90){showNavigationStatus('The resolver returned an invalid position.');return;}
+function resolveExternal(query, useAi = true) {
+  if (!viewer || !A) {
+    showNavigationStatus('The sky map is still starting. Try again shortly.');
+    return;
+  }
+  const revision = ++searchRevision;
+  showNavigationStatus('Searching the sky catalog…');
+  dismiss();
+
+  function lookup(name) {
+    return new Promise(resolve => {
+      const timeout = setTimeout(() => resolve(null), 3500);
+      A.Sesame.resolveAstronomicalName(name, position => {
+        clearTimeout(timeout);
+        resolve(position);
+      }, () => {
+        clearTimeout(timeout);
+        resolve(null);
+      });
+    });
+  }
+
+  async function run() {
+    let name = query;
+    let position = await lookup(name);
+    if (revision !== searchRevision) return;
+    if (!position && useAi) {
+      showNavigationStatus('AI is interpreting your search…');
+      try {
+        const response = await fetch('/ai-search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          signal: AbortSignal.timeout(11000),
+        });
+        if (!response.ok) throw new Error('Search unavailable');
+        const result = await response.json();
+        if (revision !== searchRevision) return;
+        if (!result.target) {
+          showNavigationStatus(result.message || 'Try adding an object name or a constellation.');
+          return;
+        }
+        name = result.target;
+        position = await lookup(name);
+      } catch {
+        if (revision === searchRevision) showNavigationStatus('AI search is unavailable. Try an object name, catalog ID, or RA and Dec.');
+        return;
+      }
+    }
+    if (revision !== searchRevision) return;
+    const { ra, dec } = position ?? {};
+    if (!Number.isFinite(ra) || !Number.isFinite(dec) || ra < 0 || ra >= 360 || Math.abs(dec) > 90) {
+      showNavigationStatus('No catalog position found for ' + name + '. Try a more specific query.');
+      return;
+    }
     const refresh = !byId('observation-panel').hidden;
     if (!byId('barnard-panel').hidden) byId('barnard-close').click();
-    pointAt(ra,dec); rememberTarget(ra,dec,query); inspect(null); byId('lesson').hidden=true; syncState(); showNavigationStatus('Position resolved by CDS Sesame.');
+    pointAt(ra, dec);
+    rememberTarget(ra, dec, name);
+    inspect(null);
+    byId('lesson').hidden = true;
+    syncState();
+    showNavigationStatus('Found ' + name + ' in the CDS sky catalog.');
     if (refresh) void selectObservations(ra, dec);
-  },()=>{clearTimeout(timeout);if(revision===searchRevision)showNavigationStatus('No object found. Try a catalog ID, a different spelling, or RA and Dec.');});
+  }
+  void run();
 }
 target.addEventListener('focus',render);
 target.addEventListener('click',()=>{if(popup.hidden)render();});
@@ -306,7 +360,7 @@ byId('navigation').addEventListener('submit',event=>{
   if(result.results[0]?.type === 'coordinates'){choose(result.results[0]);return;}
   if (result.results.length) {
     render();
-    showNavigationStatus('Choose a suggestion or search the full sky catalog.');
+    showNavigationStatus('Choose a suggestion or search by description.');
     return;
   }
   resolveExternal(catalogQuery(query));
