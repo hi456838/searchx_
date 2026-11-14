@@ -29,3 +29,8 @@ Completed PNGs and job state persist on the volume. Coordinates are rounded to
 six decimal places with less than 0.003 arcseconds of centre offset. The
 worker admits at most four queued or running jobs and eight new jobs per minute.
 Only one region job processes FITS at a time.
+
+The browser uses a one-arcsecond coordinate grid for both clicks and hover
+prefetch, changing the centre by at most 0.71 arcseconds. Hover near a known
+object for 700 ms to warm the corresponding field. Speculative jobs are
+admitted only when the worker is idle and no more than once per 30 seconds.

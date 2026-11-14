@@ -224,7 +224,13 @@ async function start() {
       selectObservations.close();
       inspect(null);
       return openBarnard.region(...coords);
-    });
+    }, (x, y) => {
+      const rect = byId('sky').getBoundingClientRect();
+      return references.some(({ ra, dec }) => {
+        const point = viewer.world2pix(ra, dec);
+        return point && Math.hypot(point[0] + rect.left - x, point[1] + rect.top - y) <= 28;
+      });
+    }, openBarnard.prefetch);
     byId('object-observations').addEventListener('click', () => {
       if (!selectedReference) return;
       const { ra, dec } = selectedReference;

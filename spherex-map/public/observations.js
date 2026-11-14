@@ -1,4 +1,4 @@
-export function setupObservations(viewer, A, selectTimeLapse) {
+export function setupObservations(viewer, A, selectTimeLapse, nearbyObject, prefetchTimeLapse) {
   const byId = id => document.getElementById(id);
   const sky = byId('sky');
   const panel = byId('observation-panel');
@@ -11,6 +11,7 @@ export function setupObservations(viewer, A, selectTimeLapse) {
   const overlay = A.graphicOverlay({ name: 'SPHEREx observation position', color: '#8eeade', lineWidth: 2 });
   viewer.addOverlay(overlay);
   let gesture, request, timer, selected, frames = [];
+  let hoverTimer;
 
   function stop() {
     clearInterval(timer);
@@ -66,7 +67,18 @@ export function setupObservations(viewer, A, selectTimeLapse) {
     }
   }
 
+  function coordinatesAt(x, y) {
+    const rect = sky.getBoundingClientRect();
+    try {
+      return viewer.pix2world(x - rect.left, y - rect.top, 'ICRS');
+    } catch {
+      return null;
+    }
+  }
+
+  sky.addEventListener('pointerleave', () => clearTimeout(hoverTimer));
   sky.addEventListener('pointerdown', event => {
+    clearTimeout(hoverTimer);
     if (!event.isPrimary || event.button !== 0 ||
         event.target.closest('button, a, input, select, .aladin-control-container')) {
       gesture = undefined;
@@ -75,6 +87,16 @@ export function setupObservations(viewer, A, selectTimeLapse) {
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY };
   }, true);
   sky.addEventListener('pointermove', event => {
+    clearTimeout(hoverTimer);
+    if (event.pointerType === 'mouse' && !event.buttons &&
+        !event.target.closest('button, a, input, select, .aladin-control-container')) {
+      const { clientX, clientY } = event;
+      hoverTimer = setTimeout(() => {
+        if (!nearbyObject(clientX, clientY)) return;
+        const coords = coordinatesAt(clientX, clientY);
+        if (coords) prefetchTimeLapse(...coords);
+      }, 700);
+    }
     if (gesture && (gesture.id !== event.pointerId ||
         Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 6)) gesture = undefined;
   }, true);
@@ -83,13 +105,7 @@ export function setupObservations(viewer, A, selectTimeLapse) {
     const start = gesture;
     gesture = undefined;
     if (start?.id !== event.pointerId || Math.hypot(event.clientX - start.x, event.clientY - start.y) > 6) return;
-    const rect = sky.getBoundingClientRect();
-    let coords;
-    try {
-      coords = viewer.pix2world(event.clientX - rect.left, event.clientY - rect.top, 'ICRS');
-    } catch {
-      return;
-    }
+    const coords = coordinatesAt(event.clientX, event.clientY);
     if (coords && byId('barnard-select').getAttribute('aria-pressed') !== 'true') void selectTimeLapse(...coords);
   }, true);
   byId('observation-close').addEventListener('click', () => {

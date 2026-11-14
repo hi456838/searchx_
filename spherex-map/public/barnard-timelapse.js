@@ -30,6 +30,12 @@ export function setupBarnard(viewer, A, pointAt) {
   let timer, pending, manifest, startPoint;
   let revision = 0;
   let regionRequest, selectedRegion;
+  let lastPrefetch = -Infinity;
+  function regionQuery(ra, dec) {
+    const longitude = Math.round((((ra % 360) + 360) % 360) * 3600) % 1296000 / 3600;
+    const latitude = Math.round(dec * 3600) / 3600;
+    return new URLSearchParams({ ra: longitude.toFixed(6), dec: latitude.toFixed(6), field: 4 });
+  }
   let frameRevision = 0;
 
   function stop() {
@@ -103,13 +109,13 @@ export function setupBarnard(viewer, A, pointAt) {
     const controller = new AbortController();
     regionRequest = controller;
     const deadline = Date.now() + 360000;
-    const query = new URLSearchParams({ ra: selectedRegion[0], dec, field: 4 });
+    const query = regionQuery(...selectedRegion);
     const endpoint = '/timelapse/regions';
     byId('barnard-heading').textContent = 'Sky time-lapse';
     byId('barnard-position').textContent = `RA ${selectedRegion[0].toFixed(4)}°, Dec ${dec.toFixed(4)}° · 4′ field`;
     find.hidden = true;
     overlay.removeAll();
-    overlay.add(A.circle(...selectedRegion, radius));
+    overlay.add(A.circle(Number(query.get('ra')), Number(query.get('dec')), radius));
     status.textContent = 'Looking for NEOWISE W1 observations at IRSA.';
     delete status.dataset.loading;
 
@@ -141,7 +147,7 @@ export function setupBarnard(viewer, A, pointAt) {
             if (index >= 0) slider.value = index;
           }
         }
-        if (!response.ok && response.status !== 202 || result.status === 'error') {
+        if (!response.ok || result.status === 'error') {
           throw new Error(result.message || result.detail || 'Time-lapse unavailable.');
         }
         status.textContent = result.message || '';
@@ -271,5 +277,25 @@ export function setupBarnard(viewer, A, pointAt) {
     return load(true);
   };
   open.region = loadRegion;
+  open.prefetch = async (ra, dec) => {
+    if (![ra, dec].every(Number.isFinite) || Math.abs(dec) > 90 ||
+        performance.now() - lastPrefetch < 30000) return;
+    lastPrefetch = performance.now();
+    const query = regionQuery(ra, dec);
+    query.set('prefetch', 'true');
+    try {
+      const response = await fetch('/timelapse/regions?' + query, {
+        method: 'POST', signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) return;
+      const { manifest } = await response.json();
+      for (const frame of manifest?.frames.slice(0, 2) ?? []) {
+        const image = new Image();
+        image.src = frame.imageUrl;
+      }
+    } catch {
+      // Speculative requests must not affect foreground playback.
+    }
+  };
   return open;
 }

@@ -19,6 +19,7 @@ lock = Lock()
 pool = ThreadPoolExecutor(max_workers=1)
 active = set()
 recent = []
+last_prefetch = -60.0
 root = None
 VERSION = "neowise-w1-v2"
 
@@ -66,7 +67,8 @@ def reply(result):
 
 @router.post("/regions")
 def start(ra: float = Query(ge=0, lt=360), dec: float = Query(ge=-90, le=90),
-          field: float = Query(default=4, ge=2, le=6)):
+          field: float = Query(default=4, ge=2, le=6), prefetch: bool = False):
+    global last_prefetch
     if not all(map(math.isfinite, (ra, dec, field))):
         raise HTTPException(422)
     ra, dec, field = (round(float(value), 6) + 0.0 for value in (ra, dec, field))
@@ -84,6 +86,10 @@ def start(ra: float = Query(ge=0, lt=360), dec: float = Query(ge=-90, le=90),
         recent[:] = [time for time in recent if now - time < 60]
         if len(active) >= 4 or len(recent) >= 8:
             raise HTTPException(429, "The time-lapse queue is busy. Try again shortly.")
+        if prefetch and (active or now - last_prefetch < 30):
+            return JSONResponse({"status": "deferred"}, headers={"Cache-Control": "no-store"})
+        if prefetch:
+            last_prefetch = now
         initial = {"status": "running", "jobId": job, "message": "Looking for NEOWISE W1 observations."}
         if prior and prior.get("manifest"):
             initial["manifest"] = prior["manifest"]

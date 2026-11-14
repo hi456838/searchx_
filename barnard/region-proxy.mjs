@@ -12,6 +12,7 @@ export async function serveRegion(url, request, response) {
 
   const params = new URLSearchParams();
   if (start) {
+    if (url.searchParams.get('prefetch') === 'true') params.set('prefetch', 'true');
     for (const [key, min, max] of [['ra', 0, 360], ['dec', -90, 90], ['field', 2, 6]]) {
       const raw = url.searchParams.get(key) ?? (key === 'field' ? '4' : '');
       const number = Number(raw);
