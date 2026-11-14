@@ -32,6 +32,7 @@ export function setupObservations(viewer, A, closeInspector) {
 
   async function showFrame(index) {
     const frame = frames[index];
+    if (!frame) return false;
     slider.value = index;
     const date = new Date((frame.mjd - 40587) * 86400000);
     byId('observation-date').textContent = date.toISOString().slice(0, 10) +
@@ -48,7 +49,12 @@ export function setupObservations(viewer, A, closeInspector) {
     if (!pending) {
       const next = new Image();
       next.src = preview;
-      pending = next.decode().then(() => next.src);
+      let timeout;
+      const deadline = new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Preview timed out')), 14000);
+      });
+      pending = Promise.race([next.decode().then(() => next.src), deadline])
+        .finally(() => clearTimeout(timeout));
       previewCache.set(preview, pending);
     }
     try {
@@ -57,12 +63,15 @@ export function setupObservations(viewer, A, closeInspector) {
       image.src = src;
       image.hidden = false;
       imageStatus.hidden = true;
+      byId('observation-retry').hidden = true;
       return true;
     } catch {
       if (previewCache.get(preview) === pending) previewCache.delete(preview);
       if (revision !== previewRevision) return false;
-      imageStatus.textContent = 'Image preview unavailable. The original FITS cutout is linked below.';
-      return true;
+      imageStatus.textContent = 'This image could not be loaded. The original FITS cutout is linked below.';
+      byId('observation-retry').hidden = false;
+      stop();
+      return false;
     }
   }
 
@@ -75,6 +84,7 @@ export function setupObservations(viewer, A, closeInspector) {
     request = current;
     selected = [ra, dec];
     resetPreview();
+    frames = [];
     stop();
     panel.hidden = false;
     player.hidden = true;
@@ -147,7 +157,7 @@ export function setupObservations(viewer, A, closeInspector) {
     panel.hidden = true;
     byId('observation-center').focus();
   });
-  byId('observation-retry').addEventListener('click', () => { if (selected) void select(...selected); });
+  byId('observation-retry').addEventListener('click', () => { if (frames.length && !player.hidden) void showFrame(Number(slider.value)); else if (selected) void select(...selected); });
   byId('barnard-select').addEventListener('click', () => {
     if (!panel.hidden && byId('barnard-select').getAttribute('aria-pressed') === 'true') {
       request?.abort();
