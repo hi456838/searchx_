@@ -1,5 +1,5 @@
 import { parseProperties, references } from './sky-data.js';
-import { search } from './search.js';
+import { catalogQuery, search } from './search.js';
 import { uiState } from './ui-state.js';
 import { setupObservations } from './observations.js';
 
@@ -243,7 +243,7 @@ function render() {
   const query = target.value.trim();
   if (query && !result.error && !result.ambiguous && !matches.some(entry => entry.type === 'coordinates')) {
     matches.push({ type: 'catalog', name: 'Find “' + query + '” in the sky catalog',
-      description: 'Search CDS Sesame by object name or catalog ID', category: 'Catalog', query });
+      description: 'Search CDS Sesame by object name or catalog ID', category: 'Catalog', query: catalogQuery(query) });
   }
   byId('clear-search').hidden = !target.value;
   byId('suggestion-heading').textContent = target.value ? (result.ambiguous ? 'CHOOSE WHAT YOU MEAN' : 'SEARCH RESULTS') : 'EXPLORE THE UNIVERSE';
@@ -304,7 +304,12 @@ byId('navigation').addEventListener('submit',event=>{
   if(result.exact){choose(result.exact);return;}
   if(result.ambiguous){render();showNavigationStatus('Choose a result from the suggestions.');return;}
   if(result.results[0]?.type === 'coordinates'){choose(result.results[0]);return;}
-  resolveExternal(query);
+  if (result.results.length) {
+    render();
+    showNavigationStatus('Choose a suggestion or search the full sky catalog.');
+    return;
+  }
+  resolveExternal(catalogQuery(query));
 });
 byId('clear-search').addEventListener('click',()=>{++searchRevision;target.value='';showNavigationStatus('');target.focus();render();});
 document.addEventListener('pointerdown',event=>{if(!byId('navigation').contains(event.target))dismiss();});
