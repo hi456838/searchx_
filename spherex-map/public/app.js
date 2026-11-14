@@ -2,6 +2,8 @@ import { coordinates, parseProperties, references } from './sky-data.js';
 
 const byId = id => document.getElementById(id);
 const channel = byId('channel');
+const survey = byId('survey');
+const opticalUrl = 'https://irsa.ipac.caltech.edu/data/hips/CDS/DSS2/color';
 const notice = byId('notice');
 const target = byId('target');
 const returnButton = byId('home');
@@ -13,7 +15,7 @@ let selectedReference;
 let activeFrame = 62;
 let searchRevision = 0;
 let loadDeadline;
-let lastTarget = { ...home, label: 'Orion' };
+let lastTarget = { ...home, label: 'Horsehead' };
 
 function showNotice(message, blank = false) {
   notice.textContent = message;
@@ -76,7 +78,7 @@ function frameLayer(index) {
   return A.HiPS(location.origin + '/dr1-frame/' + index, {
     imgFormat: 'png',
     errorCallback: () => {
-      if (Number(channel.value) !== index) return;
+      if (survey.value !== 'infrared' || Number(channel.value) !== index) return;
       clearTimeout(loadDeadline);
       showNotice('Couldn’t load this wavelength. Try another wavelength or reload.');
     },
@@ -100,7 +102,7 @@ function applyChannel() {
     showNotice('SPHEREx has no image at this wavelength. Choose another wavelength to keep exploring.', true);
     return;
   }
-  if (activeFrame !== index) {
+  if (activeFrame !== index || viewer.getBaseImageLayer() !== layer) {
     const fov = viewer.getFoV()[0];
     const center = viewer.getRaDec();
     viewer.stopAnimation();
@@ -127,6 +129,33 @@ byId("guide").addEventListener("toggle", event => {
 });
 
 channel.addEventListener('change', applyChannel);
+function opticalLayer() {
+  return A.HiPS(opticalUrl, {
+    imgFormat: 'jpeg',
+    errorCallback: () => {
+      if (survey.value === 'optical') showNotice('Couldn’t load DSS2. Try SPHEREx or reload the map.');
+    },
+  });
+}
+
+survey.addEventListener('change', () => {
+  const infrared = survey.value === 'infrared';
+  const source = byId('image-source');
+  channel.hidden = !infrared;
+  channel.disabled = !infrared;
+  source.textContent = infrared ? 'SPHEREx DR1' : 'DSS2 · STScI/NASA, CDS';
+  source.href = infrared ? 'https://doi.org/10.26131/IRSA679' : 'https://doi.org/10.26093/cds/aladin/ht9n-7r';
+  clearTimeout(loadDeadline);
+  showNotice('');
+  if (infrared) {
+    applyChannel();
+    return;
+  }
+  const center = viewer.getRaDec();
+  const fov = viewer.getFoV()[0];
+  viewer.setBaseImageLayer(opticalLayer());
+  pointAt(...center, fov);
+});
 
 byId('navigation').addEventListener('submit', event => {
   event.preventDefault();
@@ -136,7 +165,7 @@ byId('navigation').addEventListener('submit', event => {
   const normalized = query.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
   showNavigationStatus('');
   const reference = references.find(item =>
-    [item.id, item.name, item === home ? 'Orion' : null].some(name => name?.toLowerCase().replace(/\s/g, '') === normalized));
+    [item.id, item.name, item === home ? 'Horsehead' : item.id === 'M 42' ? 'Orion' : null].some(name => name?.toLowerCase().replace(/\s/g, '') === normalized));
   if (reference) {
     goToReference(reference);
     return;
@@ -176,15 +205,15 @@ async function start() {
     const metadata = fetch('/irsa.properties').then(response => {
       if (!response.ok) throw new Error('Wavelength labels unavailable.');
       return response.text();
-    }).then(parseProperties);
+    }).then(parseProperties).catch(() => null);
     ({ default: A } = await import('/vendor/aladin.js'));
     await A.init;
-    layer = frameLayer(activeFrame);
+
     viewer = A.aladin(byId('sky'), {
       target: `${home.ra} ${home.dec}`, fov: home.fov, cooFrame: 'ICRS',
       showSimbadPointerControl: false, showGotoControl: false, showShareControl: false,
       showProjectionControl: false, showFullscreenControl: false, showLayersControl: false,
-      showReticle: false, survey: layer, log: false,
+      showReticle: false, survey: opticalLayer(), log: false,
     });
     viewer.on('positionChanged', updatePosition);
     viewer.on('wheelTriggered', event => {
@@ -195,7 +224,7 @@ async function start() {
       viewer.setFoV(Math.min(160, Math.max(.015, field * Math.exp(Math.sign(delta) * step))));
     });
     viewer.on('stackChanged', () => {
-      if (!blankFrames.has(Number(channel.value))) updateLoading();
+      if (survey.value === 'infrared' && !blankFrames.has(Number(channel.value))) updateLoading();
     });
     new PerformanceObserver(list => {
       for (const entry of list.getEntries()) {
@@ -204,7 +233,7 @@ async function start() {
         if (!tile || entry.responseStatus < 200 || entry.responseStatus >= 400) continue;
         loadedFrames.add(Number(tile[1]));
       }
-      if (Number(channel.value) === activeFrame && loadedFrames.has(activeFrame) && !notice.hidden) updateLoading();
+      if (survey.value === 'infrared' && Number(channel.value) === activeFrame && loadedFrames.has(activeFrame) && !notice.hidden) updateLoading();
     }).observe({ type: 'resource', buffered: true });
 
     const pins = references.map(reference => {
@@ -220,7 +249,7 @@ async function start() {
       pin.addEventListener('click', () => {
         searchRevision++;
         showNavigationStatus('');
-        rememberTarget(reference.ra, reference.dec, reference === home ? 'Orion' : reference.id);
+        rememberTarget(reference.ra, reference.dec, reference === home ? 'Horsehead' : reference.id);
         inspect(selectedReference === reference ? null : reference);
       });
       byId('map-pins').append(pin);
@@ -250,13 +279,20 @@ async function start() {
     returnButton.disabled = false;
     byId('go').disabled = false;
     updatePosition();
+    if (notice.textContent === 'Starting the sky map…') showNotice('');
     const wavelengths = await metadata;
+    survey.disabled = false;
+    if (!wavelengths) {
+      survey.options[1].textContent = 'SPHEREx · unavailable';
+      survey.options[1].disabled = true;
+      return;
+    }
     wavelengths.forEach((wavelength, index) => {
       channel.add(new Option(`${wavelength.toFixed(3)} µm${blankFrames.has(index) ? ' · no image' : ''}`, index));
+      channel.options[index].disabled = blankFrames.has(index);
     });
     channel.value = String(activeFrame);
-    channel.disabled = false;
-    updateLoading();
+
   } catch (error) {
     console.error(error);
     showNotice('The sky map couldn’t start. Reload the page and check that WebGL2 is enabled.');

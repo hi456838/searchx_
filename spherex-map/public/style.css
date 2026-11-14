@@ -109,3 +109,9 @@ dd { margin: 0 0 6px; }
   background: var(--accent);
 }
 .map-pin.label-left span { left: auto; right: 35px; }
+
+#survey {
+  border-color: #617d9c;
+  color: #ffe3b2;
+  background: #132034f5;
+}

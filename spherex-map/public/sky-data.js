@@ -1,5 +1,6 @@
 export const surveyRoot = 'https://irsa.ipac.caltech.edu/data/hips/SPHEREx/spherex_allsky_cube';
 export const references = [
+  { id: 'Barnard 33', name: 'Horsehead Nebula', ra: 85.24583, dec: -2.45833, fov: 1.25, description: 'A dark dust cloud silhouetted against the glowing gas of IC 434.', source: 'SIMBAD' },
   { id: 'M 42', name: 'Orion Nebula', ra: 83.82208, dec: -5.39111, fov: 2, description: 'A nearby emission nebula and region of active star formation.', source: 'SIMBAD' },
   { id: 'M 31', name: 'Andromeda Galaxy', ra: 10.684708, dec: 41.26875, fov: 4, description: 'A large spiral galaxy in the Local Group.', source: 'SIMBAD' },
   { id: 'M 101', name: 'Pinwheel Galaxy', ra: 210.80227, dec: 54.34895, fov: 2, description: 'A face-on spiral galaxy in Ursa Major. The coordinates are the target position in the IRSA cutout tutorial.', source: 'IRSA / NED', url: 'https://caltech-ipac.github.io/irsa-tutorials/spherex-cutouts/' },

@@ -10,21 +10,26 @@
 </head>
 <body>
 <main aria-label="SPHEREx Sky Explorer">
-  <div id="sky" aria-label="Interactive SPHEREx infrared sky map"></div>
+  <div id="sky" aria-label="Interactive astronomical sky map"></div>
   <div id="map-pins" role="group" aria-label="Objects on the map"></div>
   <div class="controls">
     <form id="navigation">
-      <input id="target" aria-label="Object name or sky coordinates" placeholder="Find Orion, M31, or coordinates" required>
+      <input id="target" aria-label="Object name or sky coordinates" placeholder="Find Horsehead, M42, or coordinates" required>
       <button id="go" type="submit" disabled>Go</button>
     </form>
     <div class="tools">
-      <select id="channel" aria-label="Infrared wavelength" disabled></select>
-      <button type="button" id="home" disabled>Return to Orion</button>
+      <select id="survey" aria-label="Sky survey" disabled>
+        <option value="optical">DSS2 · Optical color</option>
+        <option value="infrared">SPHEREx · Infrared</option>
+      </select>
+      <select id="channel" aria-label="Infrared wavelength" disabled hidden></select>
+      <button type="button" id="home" disabled>Return to Horsehead</button>
       <details id="guide">
         <summary>How to explore</summary>
         <div class="panel">
           <p>Drag to move across the sky. Use + and − to zoom. Use Return to go back to your last target at its original zoom.</p>
           <p>SPHEREx sees infrared light our eyes can’t see. Pick a wavelength to see which features stand out. Each setting shows a different wavelength of the same sky survey.</p>
+          <p>DSS2 shows optical color imagery published by CDS. Switch to SPHEREx to see the same sky in infrared.</p>
           <p>Select a labeled pin to learn about the object, or try one of these objects.</p>
           <div id="references"></div>
           <p><a href="https://irsa.ipac.caltech.edu/Missions/spherex.html">NASA / IPAC SPHEREx DR1</a> · <a href="https://github.com/cds-astro/aladin-lite/tree/v3.8.1">CDS Aladin Lite</a> · <a href="/vendor/LICENSE">License</a></p>
@@ -41,7 +46,7 @@
     <dl id="object-fields"><dt>Catalog reference</dt><dd id="object-catalog"></dd><dt>Sky position</dt><dd id="object-position"></dd></dl>
     <a id="object-source" target="_blank" rel="noopener noreferrer">Open catalog ↗</a>
   </aside>
-  <div class="coordinates"><output id="position"></output><a href="https://doi.org/10.26131/IRSA679">SPHEREx DR1</a></div>
+  <div class="coordinates"><output id="position"></output><a id="image-source" href="https://doi.org/10.26093/cds/aladin/ht9n-7r">DSS2 · STScI/NASA, CDS</a></div>
 </main>
 </body>
 </html>
