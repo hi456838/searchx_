@@ -1,4 +1,5 @@
 const center = [269.44783234, 4.74805538];
+export const barnardMarker = { id: 'barnard-star', name: "Barnard's Star", ra: center[0], dec: center[1] };
 const radius = 2 / 60;
 const endpoint = '/timelapse/barnard-star/sequence';
 const radians = degrees => degrees * Math.PI / 180;
@@ -89,7 +90,7 @@ export function setupBarnard(viewer, A, pointAt) {
     }
   }
 
-  async function load() {
+  async function load(autoplay = false) {
     reset();
     const current = revision;
     status.textContent = 'Finding NEOWISE W1 observations at IRSA.';
@@ -109,10 +110,11 @@ export function setupBarnard(viewer, A, pointAt) {
         if (result.status !== 'ready') throw new Error('IRSA job failed');
       }
       if (current !== revision) return;
-      status.textContent = '';
+      status.textContent = manifest.preview ? 'Playing archived IRSA observations.' : '';
       slider.max = manifest.frames.length - 1;
       player.hidden = false;
-      showFrame(0);
+      await showFrame(0);
+      if (current === revision && autoplay && retry.hidden) play.click();
     } catch {
       if (current !== revision) return;
       status.textContent = 'Could not prepare the IRSA observations. Try again.';
@@ -137,7 +139,7 @@ export function setupBarnard(viewer, A, pointAt) {
     delete status.dataset.loading;
     status.textContent = 'Click or tap the centre of the map to load the time-lapse.';
   });
-  retry.addEventListener('click', load);
+  retry.addEventListener('click', () => load(true));
   byId('barnard-close').addEventListener('click', () => {
     reset();
     panel.hidden = true;
@@ -181,4 +183,11 @@ export function setupBarnard(viewer, A, pointAt) {
     timer = setInterval(() => showFrame((Number(slider.value) + 1) % manifest.frames.length), 850);
   });
   select.disabled = false;
+  return () => {
+    pointAt(...center, .14);
+    setSelecting(false);
+    overlay.removeAll();
+    overlay.add(A.circle(...center, radius));
+    return load(true);
+  };
 }
