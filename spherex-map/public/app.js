@@ -1,3 +1,4 @@
+import { setupObservations } from './observations.js';
 import { coordinates, parseProperties, references } from './sky-data.js';
 
 import { setupBarnard } from './barnard-timelapse.js';
@@ -219,6 +220,13 @@ async function start() {
     });
     viewer.on('positionChanged', updatePosition);
     setupBarnard(viewer, A, pointAt);
+    const selectObservations = setupObservations(viewer, A);
+    byId('object-observations').addEventListener('click', () => {
+      if (!selectedReference) return;
+      const { ra, dec } = selectedReference;
+      inspect(null);
+      void selectObservations(ra, dec);
+    });
     viewer.on('wheelTriggered', event => {
       const delta = event.deltaY;
       if (!delta) return;

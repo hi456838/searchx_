@@ -24,13 +24,15 @@
       </select>
       <select id="channel" aria-label="Infrared wavelength" disabled hidden></select>
       <button type="button" id="home" disabled>Return to Horsehead</button>
-      <button type="button" id="barnard-select" aria-pressed="false" disabled>Select region</button>
+      <button type="button" id="barnard-select" aria-pressed="false" disabled>Barnard’s Star</button>
+      <button type="button" id="observation-center" disabled>Observations here</button>
       <details id="guide">
         <summary>How to explore</summary>
         <div class="panel">
           <p>Drag to move across the sky. Use + and − to zoom. Use Return to go back to your last target at its original zoom.</p>
           <p>SPHEREx sees infrared light our eyes can’t see. Pick a wavelength to see which features stand out. Each setting shows a different wavelength of the same sky survey.</p>
           <p>DSS2 shows optical color imagery published by CDS. Switch to SPHEREx to see the same sky in infrared.</p>
+          <p>Click the sky to look for dated SPHEREx exposures. Use Observations here to search the center of the map.</p>
           <p>Select a labeled pin to learn about the object, or try one of these objects.</p>
           <div id="references"></div>
           <p><a href="https://irsa.ipac.caltech.edu/Missions/spherex.html">NASA / IPAC SPHEREx DR1</a> · <a href="https://github.com/cds-astro/aladin-lite/tree/v3.8.1">CDS Aladin Lite</a> · <a href="/vendor/LICENSE">License</a></p>
@@ -39,6 +41,21 @@
     </div>
     <p id="navigation-status" role="status" hidden></p>
   </div>
+  <aside id="observation-panel" class="panel" aria-labelledby="observation-heading" hidden>
+    <button id="observation-close" type="button" aria-label="Close SPHEREx observations">×</button>
+    <h2 id="observation-heading">SPHEREx observations</h2>
+    <p id="observation-position"></p>
+    <p id="observation-status" role="status"></p>
+    <div id="observation-placeholder">Image preview unavailable</div>
+    <button id="observation-retry" type="button" hidden>Try again</button>
+    <div id="observation-player" hidden>
+      <button id="observation-play" type="button">Play</button>
+      <input id="observation-frame" type="range" min="0" max="0" value="0" aria-label="Observation date">
+      <p><output id="observation-date"></output></p>
+      <a id="observation-source" target="_blank" rel="noopener noreferrer">Download this SPHEREx FITS cutout ↗</a>
+      <p>Frames use one detector. The wavelength at this spot can vary by exposure.</p>
+    </div>
+  </aside>
   <div id="notice" role="status">Starting the sky map…</div>
   <aside id="inspector" class="panel" aria-label="Object details" hidden>
     <button id="close-inspector" type="button" aria-label="Close object details">×</button>
@@ -46,6 +63,7 @@
     <p id="object-description"></p>
     <dl id="object-fields"><dt>Catalog reference</dt><dd id="object-catalog"></dd><dt>Sky position</dt><dd id="object-position"></dd></dl>
     <a id="object-source" target="_blank" rel="noopener noreferrer">Open catalog ↗</a>
+    <button id="object-observations" type="button">SPHEREx observations</button>
   </aside>
   <aside id="barnard-panel" class="panel" aria-label="Barnard’s Star time-lapse" hidden>
     <button id="barnard-close" type="button" aria-label="Close time-lapse">×</button>
