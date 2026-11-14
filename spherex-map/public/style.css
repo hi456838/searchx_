@@ -228,3 +228,110 @@ main:has(#observation-panel:not([hidden])) .inspector { visibility:hidden; }
 #observation-image:not([hidden]) { display:block; width:100%; height:100%; object-fit:contain; }
 #observation-zoom { display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; }
 #observation-placeholder[hidden] { display:none; }
+
+/* Reorganized controls use the published Observatory's existing visual theme. */
+#navigation { left:20px; top:16px; transform:none; width:min(400px, calc(100vw - 32px)); }
+.layers-menu { position:absolute; right:20px; top:20px; pointer-events:auto; }
+.layers-menu>summary, .map-controls button, #sheet-toggle, #quiz button, #quiz-start, .story-close { color:#253344; background:#f9fafc; border:1px solid #dae1e8; border-radius:8px; box-shadow:0 3px 12px #0002; }
+.layers-menu>summary { list-style:none; padding:0 14px; min-height:44px; display:flex; align-items:center; gap:6px; font-size:.76rem; }
+.layers-menu>summary::-webkit-details-marker { display:none; }
+.layers-menu .tools { position:absolute; right:0; top:52px; left:auto; width:250px; padding:12px; display:flex; flex-direction:column; align-items:stretch; gap:8px; background:#fbfcfd; border:1px solid #dbe2e9; border-radius:16px; box-shadow:var(--shadow); }
+.layers-menu .tool-label { display:block; color:#61758c; text-shadow:none; }
+.layers-menu .tools select { max-width:none; }
+#guide .panel { position:static; width:auto; max-height:45vh; box-shadow:none; margin-top:6px; }
+#guide .panel #references { display:none; }
+.map-controls { position:absolute; right:20px; bottom:48px; display:flex; gap:6px; pointer-events:auto; }
+.map-controls button { min-width:44px; min-height:44px; padding:0 12px; font-size:.8rem; }
+#sky .aladin-zoom-in, #sky .aladin-zoom-out { display:none; }
+#sky, #map-pins { transition:left .28s ease,width .28s ease; }
+main.story-open #sky, main.story-open #map-pins { left:420px; width:calc(100% - 420px); }
+#story-sidebar { position:absolute; z-index:5; left:0; top:84px; bottom:0; width:420px; max-width:100%; overflow:auto; overscroll-behavior:contain; background:#fcfcfd; border-right:1px solid #e4e9ee; box-shadow:var(--shadow); transform:translateX(-105%); visibility:hidden; transition:transform .28s ease,visibility .28s; color:#202c39; }
+main.story-open #story-sidebar { transform:translateX(0); visibility:visible; }
+.story-section { padding:20px 28px 0; font-size:.86rem; line-height:1.55; }
+.story-section h2 { color:#171f2b; font-size:1.8rem; line-height:1.15; letter-spacing:-.035em; margin:0 40px 9px 0; }
+.story-section h3 { color:#61758c; font-size:.72rem; letter-spacing:.11em; text-transform:uppercase; }
+.story-section p { margin:0 0 16px; }
+.story-section .intro { color:#283440; font-size:.98rem; line-height:1.6; }
+.story-section .object-id, #observation-position, #barnard-position { color:#697b8e; font-size:.75rem; }
+#story-sidebar .inspector-content { padding:0; }
+.story-close, #story-sidebar #observation-close, #story-sidebar #barnard-close { position:static; float:right; width:36px; height:36px; padding:0; border:0; border-radius:7px; background:transparent; color:#26313e; font-size:1.4rem; }
+#story-sidebar #observation-panel, #story-sidebar #barnard-panel { position:static; width:auto; max-height:none; overflow:visible; background:transparent; border:0; border-radius:0; box-shadow:none; padding:20px 28px 0; }
+#story-sidebar #observation-panel h2, #story-sidebar #barnard-panel h2 { font-size:1.1rem; }
+#story-supplement { padding-top:4px; }
+main:has(#observation-panel:not([hidden])) #object-observations { display:none; }
+#story-sidebar #observation-viewport:not([hidden]) { width:100%; max-height:300px; border-radius:8px; }
+#story-action { padding:20px 28px 28px; }
+#quiz-start { width:100%; display:flex; justify-content:space-between; padding:14px; color:#1762a9; font-weight:650; }
+#quiz-heading { font-size:1.35rem; margin:12px 0 22px; }
+.quiz-answers { display:grid; gap:9px; }
+.quiz-answers button { padding:12px; text-align:left; }
+.quiz-answers .correct { background:#e1f1e9!important; border-color:#7ab79a!important; }
+.quiz-answers .incorrect { background:#f8eae7!important; border-color:#c8988c!important; }
+#quiz-feedback { padding:12px 0; }
+#quiz-next { margin-bottom:28px; padding:10px; }
+main.quiz-open #story-sidebar>.story-section:not(#quiz), main.quiz-open #story-action { display:none!important; }
+#sheet-toggle { display:none; }
+#navigation-status { left:20px; top:76px; transform:none; }
+@media(max-width:850px) {
+  #navigation { left:10px; top:10px; width:min(400px, calc(100vw - 145px)); }
+  .layers-menu { top:10px; right:10px; }
+  .layers-menu .tools { left:auto; right:0; top:50px; }
+  #story-sidebar { left:0; right:0; top:auto; bottom:0; width:100%; max-height:49dvh; border-right:0; border-top:1px solid #dbe2e9; border-radius:18px 18px 0 0; transform:translateY(105%); }
+  main.story-open #story-sidebar { transform:translateY(0); }
+  main.story-open #sky, main.story-open #map-pins { left:0; width:100%; }
+  .story-section, #story-sidebar #observation-panel, #story-sidebar #barnard-panel { padding:18px 20px 0; }
+  #story-action { padding:16px 20px 24px; }
+  #sheet-toggle { display:block; position:sticky; top:0; z-index:3; width:100%; padding:10px; border:0; border-bottom:1px solid #dbe2e9; border-radius:0; color:#61758c; font-size:.72rem; font-weight:650; }
+  main.sheet-expanded #story-sidebar { max-height:80dvh; }
+  main.story-open .map-controls { bottom:calc(49dvh + 12px); }
+  main.story-open .coordinates { bottom:calc(49dvh + 61px); visibility:visible; }
+  main.story-open.sheet-expanded .map-controls { bottom:calc(80dvh + 12px); }
+  main.story-open.sheet-expanded .coordinates { bottom:calc(80dvh + 61px); }
+  #navigation-status { top:65px; }
+}
+@media(prefers-reduced-motion:reduce) { #sky, #map-pins, #story-sidebar { transition:none; } }
+
+/* Compact three-stage panel, using the published light surfaces and type. */
+@media(min-width:851px){
+  #story-sidebar{bottom:auto;max-height:82dvh;width:var(--panel-width,340px);border:1px solid #e4e9ee;border-radius:16px;display:flex;flex-direction:column;overflow:visible;}
+  #panel-body{overflow:auto;min-height:0;}
+  #panel-resize{position:absolute;right:-5px;top:65px;bottom:14px;width:10px;cursor:ew-resize;touch-action:none;}
+  #panel-resize:hover,#panel-resize:focus-visible{background:#176cc144;}
+  main.story-open #sky,main.story-open #map-pins{left:var(--panel-width,340px);width:calc(100% - var(--panel-width,340px));}
+  main.story-open.panel-floating #sky,main.story-open.panel-floating #map-pins,main.story-open.panel-collapsed #sky,main.story-open.panel-collapsed #map-pins{left:0;width:100%;}
+  main.panel-floating #story-sidebar{transform:none;}
+}
+#panel-header{display:flex;align-items:center;gap:9px;min-height:40px;padding:4px 12px;border-bottom:1px solid #e4e9ee;color:#61758c;font-size:.7rem;font-weight:700;letter-spacing:.09em;cursor:grab;user-select:none;touch-action:none;}
+#panel-header:active{cursor:grabbing;}
+#panel-drag-title{flex:1;}
+#panel-header button{width:28px;height:28px;border:0;background:transparent;color:#61758c;font-size:1.1rem;border-radius:6px;}
+#panel-header button:hover{background:#edf2f7;}
+#panel-stages{display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid #e4e9ee;}
+#panel-stages button{flex:1;border:0;border-radius:7px;background:transparent;color:#61758c;padding:7px 3px;font-size:.7rem;}
+#panel-stages button[aria-current=step]{color:#1762a9;background:#eaf2fa;font-weight:700;}
+main[data-stage=discover] #observation-panel,main[data-stage=observe] #inspector,main[data-stage=observe] #story-supplement,main[data-stage=understand] #inspector,main[data-stage=understand] #observation-panel,main[data-stage=understand] #story-supplement{display:none!important;}
+main[data-stage=discover] #story-supplement{padding-top:0;}
+main[data-stage=discover] #story-supplement .source-link{display:none;}
+main[data-stage=observe] #observation-panel{padding-bottom:12px;}
+main[data-stage=observe] #observation-panel>.evidence{margin:14px 0 20px;}
+#story-sidebar #observation-panel h2{font-size:.96rem;color:#61758c;}
+#story-sidebar #observation-panel #observation-placeholder{min-height:0;padding:12px;}
+main[data-stage=understand] #story-action{display:none!important;}
+main.panel-collapsed #panel-stages,main.panel-collapsed #panel-body,main.panel-collapsed #panel-resize{display:none!important;}
+#story-sidebar .story-section{padding-top:15px;}
+#story-sidebar #observation-panel{padding-top:15px;}
+#story-sidebar #story-action{padding-top:8px;}
+#story-sidebar #quiz-start{background:#f1f5f9;border-color:#cdd8e3;}
+@media(max-width:850px){
+  #story-sidebar{max-height:42dvh;}
+  main.story-open .map-controls{bottom:calc(42dvh + 12px);}
+  main.story-open .coordinates{bottom:calc(42dvh + 61px);}
+  #panel-resize{display:none;}
+  #panel-header{display:none;}
+  main:not(.sheet-expanded) #panel-stages,main:not(.sheet-expanded) #panel-body{display:none;}
+  main.story-open:not(.sheet-expanded) #story-sidebar{max-height:46px;}
+  main.story-open:not(.sheet-expanded) .map-controls{bottom:60px;}
+  main.story-open:not(.sheet-expanded) .coordinates{bottom:109px;}
+  main.sheet-expanded #story-sidebar{max-height:80dvh;}
+  #sheet-toggle{display:flex;justify-content:space-between;padding:14px 18px;text-align:left;}
+}

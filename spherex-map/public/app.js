@@ -22,7 +22,7 @@ function syncState() { document.querySelector('main').dataset.state = uiState({s
 const blankFrames = new Set([50, 51]);
 const home = references[0];
 const loadedFrames = new Set();
-let viewer, A, layer;
+let viewer, A, layer, selectObservations;
 let selectedReference;
 let activeFrame = 62;
 let searchRevision = 0;
@@ -51,6 +51,10 @@ function inspect(reference) {
 
   selectedReference = reference;
   byId('inspector').hidden = !reference;
+  byId('story-supplement').hidden = !reference;
+  resetQuiz();
+  setStage('discover');
+  byId('sheet-name').textContent = reference?.name || 'Selected object';
   syncState();
   for (const pin of byId('map-pins').children) {
     pin.setAttribute('aria-expanded', String(pin.dataset.reference === reference?.id));
@@ -69,6 +73,7 @@ function inspect(reference) {
   byId('object-position').textContent = positionText(reference.ra, reference.dec);
   byId('object-source').href = reference.url ??
     'https://simbad.cds.unistra.fr/simbad/sim-id?Ident=' + encodeURIComponent(reference.id);
+  if (selectObservations) void selectObservations(reference.ra, reference.dec);
 }
 
 function rememberTarget(ra, dec, label, fov = viewer.getFoV()[0]) {
@@ -142,64 +147,13 @@ returnButton.addEventListener('click', () => {
   pointAt(lastTarget.ra, lastTarget.dec, lastTarget.fov);
 });
 byId('close-inspector').addEventListener('click', () => {
-  const pin = Array.from(byId('map-pins').children).find(button => button.dataset.reference === selectedReference?.id);
+  selectObservations?.close();
   inspect(null);
   target.focus({preventScroll:true}); dismiss();
 });
 byId("guide").addEventListener("toggle", event => {
   if (event.target.open) inspect(null);
 });
-
-// Move only from the explicit handle so text, links and map gestures remain usable.
-for (const panel of document.querySelectorAll('.inspector')) {
-  const handle = panel.querySelector('.drag-handle');
-  let drag;
-  function place(x, y) {
-    const rect = panel.getBoundingClientRect();
-    const maxX = Math.max(0, document.documentElement.clientWidth - rect.width);
-    const maxY = Math.max(0, document.documentElement.clientHeight - rect.height);
-    panel.style.left = Math.round(Math.max(0, Math.min(x, maxX))) + 'px';
-    panel.style.top = Math.round(Math.max(0, Math.min(y, maxY))) + 'px';
-    panel.style.right = 'auto'; panel.style.bottom = 'auto';
-    panel.dataset.moved = 'true';
-    panel.querySelector('.reset-panel').hidden = false;
-  }
-  handle.addEventListener('pointerdown', event => {
-    if (event.button !== 0) return;
-    const rect = panel.getBoundingClientRect();
-    drag = { pointer: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top };
-    handle.setPointerCapture(event.pointerId);
-    handle.classList.add('dragging');
-    event.preventDefault();
-  });
-  handle.addEventListener('pointermove', event => {
-    if (drag?.pointer === event.pointerId) place(event.clientX - drag.x, event.clientY - drag.y);
-  });
-  function stop(event) {
-    if (drag?.pointer !== event.pointerId) return;
-    drag = undefined; handle.classList.remove('dragging');
-  }
-  handle.addEventListener('pointerup', stop);
-  handle.addEventListener('pointercancel', stop);
-  handle.addEventListener('lostpointercapture', stop);
-  const reset = panel.querySelector('.reset-panel');
-  function resetPosition() { panel.style.removeProperty('left'); panel.style.removeProperty('top'); panel.style.removeProperty('right'); panel.style.removeProperty('bottom'); delete panel.dataset.moved; reset.hidden = true; }
-  reset.addEventListener('click', resetPosition);
-  handle.addEventListener('keydown', event => {
-    const directions = { ArrowLeft: [-1,0], ArrowRight: [1,0], ArrowUp: [0,-1], ArrowDown: [0,1] };
-    if (event.key === 'Home') { event.preventDefault(); resetPosition(); return; }
-    if (!directions[event.key]) return;
-    event.preventDefault();
-    const rect = panel.getBoundingClientRect(); const step = event.shiftKey ? 50 : 10;
-    const [dx,dy] = directions[event.key]; place(rect.left + dx * step, rect.top + dy * step);
-  });
-  function keepVisible() {
-    if (panel.hidden || !panel.dataset.moved) return;
-    const rect = panel.getBoundingClientRect(); place(rect.left, rect.top);
-  }
-  window.addEventListener('resize', keepVisible);
-  new ResizeObserver(keepVisible).observe(panel);
-}
 
 function opticalLayer() {
   return A.HiPS(opticalUrl, {imgFormat:'jpeg', errorCallback:()=>{
@@ -226,6 +180,8 @@ byId('copy-position').addEventListener('click', async () => {
 });
 byId('sky').addEventListener('pointerdown', () => { ++searchRevision; showNavigationStatus(''); });
 byId('sky').addEventListener('wheel', () => { ++searchRevision; showNavigationStatus(''); }, { passive: true });
+for (const [id, factor] of [['map-zoom-in', .75], ['map-zoom-out', 1.333]]) byId(id).addEventListener('click',()=>{if(viewer) viewer.setFoV(Math.min(160,Math.max(.015,viewer.getFoV()[0]*factor)));});
+
 
 const popup = byId('search-popup');
 const list = byId('suggestions');
@@ -251,6 +207,7 @@ function choose(entry) {
   if (!byId('observation-panel').hidden) byId('observation-close').click();
   if (!byId('barnard-panel').hidden) byId('barnard-close').click();
   ++searchRevision; dismiss(); showNavigationStatus(''); target.value=entry.name; byId('clear-search').hidden=false;
+  if(entry.type==='action') { byId('barnard-shortcut').click(); return; }
   if(entry.type==='lesson') { inspect(null); byId('guide').open=false; byId('lesson-name').textContent=entry.name; byId('lesson-body').textContent=entry.body; byId('lesson-source').href=entry.url; byId('lesson').hidden=false; syncState(); return; }
   byId('lesson').hidden=true; syncState();
   if(!viewer) {showNavigationStatus('The sky map is still starting. Select this result again when it is ready.');return;}
@@ -285,7 +242,47 @@ byId('clear-search').addEventListener('click',()=>{++searchRevision;target.value
 document.addEventListener('pointerdown',event=>{if(!byId('navigation').contains(event.target))dismiss();});
 document.addEventListener('keydown',event=>{if(event.key!=='Escape'||!popup.hidden)return; if(!byId('inspector').hidden){byId('close-inspector').click();} else if(!byId('lesson').hidden){byId('close-lesson').click();} else if(byId('guide').open){byId('guide').open=false;byId('guide').querySelector('summary').focus();}});
 target.addEventListener('blur',()=>setTimeout(()=>{if(!byId('navigation').contains(document.activeElement))dismiss();},0));
-byId('close-lesson').addEventListener('click',()=>{byId('lesson').hidden=true;target.focus({preventScroll:true});dismiss();});
+byId('close-lesson').addEventListener('click',()=>{byId('lesson').hidden=true;resetQuiz();target.focus({preventScroll:true});dismiss();});
+
+
+const questions = [
+  {question:'What kind of light does SPHEREx observe?', choices:['Infrared light','Only visible light','Sound waves'], correct:0, feedback:'SPHEREx observes infrared light across many wavelengths.'},
+  {question:'What do observation dates tell you?', choices:['When the exposure was taken','The exact age of every object','That a change was verified'], correct:0, feedback:'A date identifies an exposure. Comparing dates alone does not establish a verified change.'}
+];
+let quizIndex = 0;
+function resetQuiz() { byId('quiz').hidden=true; byId('quiz-complete').hidden=true; byId('explore-another').hidden=true; document.querySelector('main').classList.remove('quiz-open'); quizIndex=0; }
+function showQuestion() {
+  const q=questions[quizIndex]; byId('quiz-progress').textContent=`QUESTION ${quizIndex+1} / ${questions.length}`;
+  byId('quiz-heading').textContent=q.question; byId('quiz-feedback').textContent=''; byId('quiz-next').hidden=true;
+  const answers=byId('quiz-answers'); answers.replaceChildren();
+  q.choices.forEach((choice,index)=>{const b=document.createElement('button'); b.type='button'; b.textContent=choice; b.addEventListener('click',()=>{
+    for(const item of answers.children)item.disabled=true;
+    b.classList.add(index===q.correct?'correct':'incorrect');
+    byId('quiz-feedback').textContent=(index===q.correct?'Correct. ':'Not quite. ')+q.feedback;
+    byId('quiz-next').textContent=quizIndex===questions.length-1?'Return to the sky →':'Next question →'; byId('quiz-next').hidden=false;
+  }); answers.append(b);});
+}
+byId('quiz-start').addEventListener('click',()=>setStage(document.querySelector('main').dataset.stage==='discover'?'observe':'understand'));
+byId('quiz-back').addEventListener('click',()=>setStage('observe'));
+byId('quiz-next').addEventListener('click',()=>{if(quizIndex+1<questions.length){quizIndex++;showQuestion();}else{byId('quiz-answers').replaceChildren();byId('quiz-heading').textContent='Well explored';byId('quiz-progress').textContent='COMPLETE';byId('quiz-feedback').textContent='';byId('quiz-next').hidden=true;byId('quiz-complete').hidden=false;byId('explore-another').hidden=false;}});
+function setStage(stage) {
+  const main=document.querySelector('main'); main.dataset.stage=stage;
+  byId('quiz').hidden=stage!=='understand';
+  if(stage==='understand' && !byId('quiz-complete').hidden) resetQuiz();
+  if(stage==='understand' && byId('quiz-answers').childElementCount===0) {quizIndex=0;showQuestion();}
+  for(const button of byId('panel-stages').querySelectorAll('button')) button.setAttribute('aria-current',button.dataset.stage===stage?'step':'false');
+  byId('quiz-start').innerHTML=stage==='discover'?'Observe <span aria-hidden="true">→</span>':'Understand <span aria-hidden="true">→</span>';
+  byId('story-action').hidden=stage==='understand';
+}
+for(const button of byId('panel-stages').querySelectorAll('button')) button.addEventListener('click',()=>setStage(button.dataset.stage));
+byId('explore-another').addEventListener('click',()=>{byId('panel-close').click();target.focus();render();});
+byId('panel-close').addEventListener('click',()=>{selectObservations?.close(); inspect(null); byId('lesson').hidden=true; byId('barnard-panel').hidden=true;});
+const storyObserver = new MutationObserver(()=>{
+  const visible=['inspector','lesson','observation-panel','barnard-panel'].some(id=>!byId(id).hidden);
+  document.querySelector('main').classList.toggle('story-open',visible);
+  byId('story-action').hidden=!visible || document.querySelector('main').dataset.stage==='understand';
+});
+for(const id of ['inspector','lesson','observation-panel','barnard-panel']) storyObserver.observe(byId(id),{attributes:true,attributeFilter:['hidden']});
 
 async function start() {
   try {
@@ -303,11 +300,10 @@ async function start() {
     });
     viewer.on('positionChanged', updatePosition);
     const openBarnard = setupBarnard(viewer, A, pointAt);
-    const selectObservations = setupObservations(viewer, A, () => inspect(null));
+    selectObservations = setupObservations(viewer, A, () => { byId('lesson').hidden = true; inspect(null); });
     byId('object-observations').addEventListener('click', () => {
       if (!selectedReference) return;
       const { ra, dec } = selectedReference;
-      inspect(null);
       void selectObservations(ra, dec);
     });
     viewer.on('wheelTriggered', event => {
@@ -344,6 +340,7 @@ async function start() {
         searchRevision++;
         showNavigationStatus('');
         if (reference === barnardMarker) {
+          byId('lesson').hidden = true;
           if (!byId('observation-panel').hidden) byId('observation-close').click();
           inspect(null);
           selectObservations.close();
@@ -351,7 +348,7 @@ async function start() {
           return;
         }
         rememberTarget(reference.ra, reference.dec, reference === home ? 'Horsehead' : reference.id);
-        dismiss(); inspect(selectedReference?.id === reference.id ? null : reference);
+        dismiss(); if (selectedReference?.id === reference.id) { selectObservations.close(); inspect(null); } else inspect(reference);
       });
       byId('map-pins').append(pin);
       return { pin, reference };
@@ -381,6 +378,7 @@ async function start() {
     barnardShortcut.addEventListener('click', () => {
       if (!byId('observation-panel').hidden) byId('observation-close').click();
       searchRevision++;
+      byId('lesson').hidden = true;
       inspect(null);
       selectObservations.close();
       openBarnard();
@@ -406,3 +404,27 @@ async function start() {
 }
 syncState();
 start();
+
+byId('observation-panel').append(byId('object-fields').closest('details'));
+byId('object-fields').closest('details').append(byId('observation-source'));
+let sheetDragged = false;
+byId('sheet-toggle').addEventListener('touchstart', event => { byId('sheet-toggle').dataset.startY = event.touches[0].clientY; }, {passive:true});
+byId('sheet-toggle').addEventListener('touchend', event => { const delta=event.changedTouches[0].clientY-Number(byId('sheet-toggle').dataset.startY); if(Math.abs(delta)<30)return; sheetDragged=true; const expanded=delta<0; document.querySelector('main').classList.toggle('sheet-expanded',expanded);byId('sheet-toggle').setAttribute('aria-expanded',String(expanded));byId('sheet-label').textContent=expanded?'Collapse ↓':'Expand ↑'; }, {passive:true});
+byId('sheet-toggle').addEventListener('click', event => {
+  if(sheetDragged){sheetDragged=false;return;}
+  const expanded = document.querySelector('main').classList.toggle('sheet-expanded');
+  event.currentTarget.setAttribute('aria-expanded', String(expanded));
+  byId('sheet-label').textContent = expanded ? 'Collapse ↓' : 'Expand ↑';
+});
+
+const panel=byId('story-sidebar'), main=document.querySelector('main');
+let panelWidth=340, floating=false, collapsed=false;
+function positionPanel(x,y) { const maxX=Math.max(0,innerWidth-panelWidth), maxY=Math.max(0,innerHeight-90); panel.style.left=Math.max(0,Math.min(x,maxX))+'px'; panel.style.top=Math.max(0,Math.min(y,maxY))+'px'; }
+function applyWidth(value) { panelWidth=Math.max(300,Math.min(440,value));panel.style.width=panelWidth+'px';panel.style.setProperty('--panel-width',panelWidth+'px');byId('panel-resize').setAttribute('aria-valuenow',String(panelWidth));if(floating)positionPanel(panel.offsetLeft,panel.offsetTop); }
+function dock() { floating=false;main.classList.remove('panel-floating');panel.style.left='';panel.style.top=''; }
+byId('panel-header').addEventListener('pointerdown',event=>{if(event.target.closest('button')||matchMedia('(max-width:850px)').matches)return;const startX=event.clientX,startY=event.clientY,rect=panel.getBoundingClientRect();let moved=false;const move=e=>{if(!moved&&Math.hypot(e.clientX-startX,e.clientY-startY)<6)return;moved=true;floating=true;main.classList.add('panel-floating');positionPanel(rect.left+e.clientX-startX,rect.top+e.clientY-startY);};const up=e=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);if(moved&&e.clientX<45)dock();};addEventListener('pointermove',move);addEventListener('pointerup',up,{once:true});});
+byId('panel-resize').addEventListener('pointerdown',event=>{if(matchMedia('(max-width:850px)').matches)return;event.preventDefault();event.target.setPointerCapture(event.pointerId);const width=panelWidth,x=event.clientX;const move=e=>applyWidth(width+e.clientX-x);const up=()=>{event.target.removeEventListener('pointermove',move);event.target.removeEventListener('pointerup',up);};event.target.addEventListener('pointermove',move);event.target.addEventListener('pointerup',up,{once:true});});
+byId('panel-resize').addEventListener('keydown',event=>{if(event.key==='ArrowRight'||event.key==='ArrowLeft'){event.preventDefault();applyWidth(panelWidth+(event.key==='ArrowRight'?10:-10));}else if(event.key==='Home'||event.key==='End'){event.preventDefault();applyWidth(event.key==='Home'?300:440);}});
+byId('panel-collapse').addEventListener('click',()=>{collapsed=!collapsed;main.classList.toggle('panel-collapsed',collapsed);byId('panel-collapse').textContent=collapsed?'+':'−';byId('panel-collapse').setAttribute('aria-label',collapsed?'Restore panel':'Collapse panel');});
+addEventListener('resize',()=>{if(floating)positionPanel(panel.offsetLeft,panel.offsetTop);});
+applyWidth(340);

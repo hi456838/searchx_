@@ -17,8 +17,8 @@ const objectTerms = {
   'M 101': {category:'Galaxy', aliases:['M101','NGC 5457','Pinwheel'], keywords:'spiral galaxy'}
 };
 const objects = references.map(x=>({...x, type:'object', ...(objectTerms[x.id] ?? {category:'Object', aliases:[], keywords:''})}));
-export const entries = [...objects, ...lessons];
-export const defaults = ['Barnard 33','M 42','M 31','birth','death','infrared'].map(id=>entries.find(e=>e.id===id));
+export const entries = [...objects, {id:'barnard-star',type:'action',category:'Time-lapse',name:"Barnard's Star",aliases:['barnard star','barnards star'],keywords:'moving star time lapse',description:'Explore a NEOWISE time-lapse.'}, ...lessons];
+export const defaults = ['Barnard 33','M 42','M 31','barnard-star','birth','death'].map(id=>entries.find(e=>e.id===id));
 export const normalize = value => value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(messier|ngc)\s*(\d+)/g,(_,a,b)=>a==='messier'?'m'+b:'ngc'+b).replace(/[^a-z0-9]+/g,' ').trim();
 function distance(a,b) { if(Math.abs(a.length-b.length)>2)return 99; let prev=Array.from({length:b.length+1},(_,i)=>i); for(let i=1;i<=a.length;i++){const row=[i];for(let j=1;j<=b.length;j++)row[j]=Math.min(row[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=row;}return prev[b.length]; }
 export function search(query) {
