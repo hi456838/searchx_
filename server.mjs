@@ -1,3 +1,4 @@
+import { servePreview } from './spherex-preview.mjs';
 import { createServer } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import { readFile } from 'node:fs/promises';
@@ -30,6 +31,10 @@ const port = Number(process.env.PORT ?? 5173);
 export default async function handler(request, response) {
   const url = new URL(request.url, "http://localhost");
   const { pathname } = url;
+  if (pathname === '/spherex-preview' && request.method === 'GET') {
+    await servePreview(url, response);
+    return;
+  }
   if (pathname === '/spherex-observations' && request.method === 'GET') {
     await serveObservations(url, response);
     return;

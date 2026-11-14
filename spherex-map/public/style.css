@@ -217,3 +217,6 @@ main:has(#barnard-panel:not([hidden])) .inspector { visibility:hidden; }
 #observation-panel a { color:#176cc1; }
 #observation-placeholder { color:#51667b; }
 main:has(#observation-panel:not([hidden])) .inspector { visibility:hidden; }
+
+#observation-image:not([hidden]) { display:block; width:min(100%, 28vh); aspect-ratio:1; object-fit:contain; margin:.65rem auto; background:#17212c; }
+#observation-placeholder[hidden] { display:none; }
