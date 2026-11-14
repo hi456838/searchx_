@@ -1,8 +1,9 @@
 import { parseProperties, references } from './sky-data.js';
 import { search } from './search.js';
 import { uiState } from './ui-state.js';
+import { setupObservations } from './observations.js';
 
-import { setupBarnard } from './barnard-timelapse.js';
+import { barnardMarker, setupBarnard } from './barnard-timelapse.js';
 
 const byId = id => document.getElementById(id);
 const channel = byId('channel');
@@ -247,6 +248,8 @@ function render() {
 }
 function setActive(index) { active=(index+matches.length)%matches.length; [...list.children].forEach((el,i)=>el.setAttribute('aria-selected',String(i===active))); target.setAttribute('aria-activedescendant','suggestion-'+active); list.children[active]?.scrollIntoView({block:'nearest'}); }
 function choose(entry) {
+  if (!byId('observation-panel').hidden) byId('observation-close').click();
+  if (!byId('barnard-panel').hidden) byId('barnard-close').click();
   ++searchRevision; dismiss(); showNavigationStatus(''); target.value=entry.name; byId('clear-search').hidden=false;
   if(entry.type==='lesson') { inspect(null); byId('guide').open=false; byId('lesson-name').textContent=entry.name; byId('lesson-body').textContent=entry.body; byId('lesson-source').href=entry.url; byId('lesson').hidden=false; syncState(); return; }
   byId('lesson').hidden=true; syncState();
@@ -299,7 +302,14 @@ async function start() {
       showReticle: false, survey: opticalLayer(), log: false,
     });
     viewer.on('positionChanged', updatePosition);
-    setupBarnard(viewer, A, pointAt);
+    const openBarnard = setupBarnard(viewer, A, pointAt);
+    const selectObservations = setupObservations(viewer, A);
+    byId('object-observations').addEventListener('click', () => {
+      if (!selectedReference) return;
+      const { ra, dec } = selectedReference;
+      inspect(null);
+      void selectObservations(ra, dec);
+    });
     viewer.on('wheelTriggered', event => {
       const delta = event.deltaY;
       if (!delta) return;
@@ -320,7 +330,7 @@ async function start() {
       if (survey.value === 'infrared' && Number(channel.value) === activeFrame && loadedFrames.has(activeFrame) && !notice.hidden) updateLoading();
     }).observe({ type: 'resource', buffered: true });
 
-    const pins = references.map(reference => {
+    const pins = [...references, barnardMarker].map(reference => {
       const pin = document.createElement('button');
       pin.className = 'map-pin';
       pin.type = 'button';
@@ -333,6 +343,12 @@ async function start() {
       pin.addEventListener('click', () => {
         searchRevision++;
         showNavigationStatus('');
+        if (reference === barnardMarker) {
+          if (!byId('observation-panel').hidden) byId('observation-close').click();
+          inspect(null);
+          openBarnard();
+          return;
+        }
         rememberTarget(reference.ra, reference.dec, reference === home ? 'Horsehead' : reference.id);
         dismiss(); inspect(selectedReference?.id === reference.id ? null : reference);
       });
@@ -360,6 +376,14 @@ async function start() {
       button.addEventListener('click', () => goToReference(reference));
       byId('references').append(button);
     }
+    const barnardShortcut = byId('barnard-shortcut');
+    barnardShortcut.addEventListener('click', () => {
+      if (!byId('observation-panel').hidden) byId('observation-close').click();
+      searchRevision++;
+      inspect(null);
+      openBarnard();
+    });
+    barnardShortcut.disabled = false;
     returnButton.disabled = false;
 
     updatePosition();
